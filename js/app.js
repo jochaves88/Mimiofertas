@@ -274,15 +274,14 @@
         const precoStr = formatMoney(item.preco);
         const precoOrigStr = formatMoney(item.preco_original);
 
-        // Links de compartilhamento na vitrine apontando para o próprio site com UTM
+        // Links de compartilhamento na vitrine (WhatsApp direciona ao site com UTM, Pinterest vai direto para o link de afiliado da Shopee)
         const shareSiteUrlWhatsapp = `${baseUrl}?p=${encodeURIComponent(item.id)}&utm_source=whatsapp`;
-        const shareSiteUrlPinterest = `${baseUrl}?p=${encodeURIComponent(item.id)}&utm_source=pinterest`;
 
         const waText = `🔥 *${item.titulo}*\n💰 Por apenas *${precoStr}* (-${item.desconto}% OFF)\n⭐ Nota ${item.nota.toFixed(1)} | ${formatVendas(item.vendas)} vendidos\n\n👉 Veja todos os detalhes e garanta o desconto aqui:\n${shareSiteUrlWhatsapp}`;
         const waHref = `https://api.whatsapp.com/send?text=${encodeURIComponent(waText)}`;
 
         const pinDesc = `${item.titulo} por apenas ${precoStr} no Mimi Ofertas! #shopee #achadinhos #ofertas`;
-        const pinHref = `https://pinterest.com/pin/create/button/?url=${encodeURIComponent(shareSiteUrlPinterest)}&media=${encodeURIComponent(item.imagem)}&description=${encodeURIComponent(pinDesc)}`;
+        const pinHref = `https://pinterest.com/pin/create/button/?url=${encodeURIComponent(item.link_afiliado)}&media=${encodeURIComponent(item.imagem)}&description=${encodeURIComponent(pinDesc)}`;
 
         return `
         <article class="bg-white rounded-2xl border border-slate-100 shadow-xs hover:shadow-lg hover:border-orange-200 transition-all duration-300 flex flex-col overflow-hidden group">
