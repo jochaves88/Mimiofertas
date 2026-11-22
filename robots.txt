@@ -1,8 +1,10 @@
 User-agent: *
 Allow: /
+Disallow: /painel.html
 
 # Pinterest & Search Bot Verification
 User-agent: Pinterestbot
 Allow: /
+Disallow: /painel.html
 
 Sitemap: https://jochaves88.github.io/Mimiofertas/sitemap.xml

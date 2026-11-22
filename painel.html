@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full bg-slate-900">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Mimi Ofertas | Painel Gerenciador e Minerador</title>
+  
+  <!-- Segurança Crítica: Bloqueia Indexação -->
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ea580c'><path d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/></svg>" type="image/svg+xml">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&family=Rubik:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            heading: ['Rubik', 'sans-serif'],
+            body: ['Nunito Sans', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body { font-family: 'Nunito Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
+    h1, h2, h3, h4, .font-heading { font-family: 'Rubik', sans-serif; }
+    .scrollbar-none::-webkit-scrollbar { display: none; }
+    .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="min-h-full bg-slate-950 text-slate-100 flex flex-col antialiased selection:bg-orange-500 selection:text-white pb-24">
+
+  <!-- ================= TELA DE LOGIN ================= -->
+  <div id="login-modal" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl text-center">
+      <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-orange-600 to-amber-500 mx-auto flex items-center justify-center text-white shadow-lg shadow-orange-500/30 mb-4">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+        </svg>
+      </div>
+
+      <h1 class="text-2xl font-bold text-white font-heading">Painel Privado</h1>
+      <p class="text-xs text-slate-400 mt-1 mb-6">Mimi Ofertas • Acesso Restrito</p>
+
+      <form id="login-form" class="space-y-4">
+        <div>
+          <input 
+            type="password" 
+            id="admin-password-input" 
+            placeholder="Senha Mestra de Admin" 
+            required
+            class="w-full px-4 py-3.5 bg-slate-800/90 border border-slate-700 rounded-2xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-center tracking-widest"
+          />
+        </div>
+        <button 
+          type="submit" 
+          id="btn-login"
+          class="w-full py-3.5 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white font-bold rounded-2xl text-sm shadow-lg shadow-orange-600/30 active:scale-[0.98] transition-all cursor-pointer"
+        >
+          Acessar Painel
+        </button>
+      </form>
+      <div id="login-error" class="hidden mt-3 text-xs text-red-400 font-semibold"></div>
+    </div>
+  </div>
+
+  <!-- ================= TOPBAR DO PAINEL ================= -->
+  <header class="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-4 py-3">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-xl bg-orange-600 flex items-center justify-center text-white font-bold text-xs shadow-sm shadow-orange-500/40">
+          MO
+        </div>
+        <div>
+          <span class="text-base font-bold text-white font-heading">Mimi<span class="text-orange-500">Painel</span></span>
+          <span class="ml-2 text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Shopee API</span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <a href="index.html" target="_blank" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1 transition-colors">
+          <span>Ver Site</span>
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+          </svg>
+        </a>
+        <button id="btn-logout" title="Sair" class="p-2 rounded-xl bg-slate-800/80 hover:bg-red-500/20 text-slate-400 hover:text-red-400 text-xs transition-colors cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= ABAS MOBILE (TABS) ================= -->
+  <div class="bg-slate-900 border-b border-slate-800/80 px-4">
+    <div class="max-w-4xl mx-auto flex gap-4">
+      <button 
+        id="tab-btn-minerar" 
+        class="flex-1 py-3 border-b-2 border-orange-500 text-orange-400 font-bold text-sm text-center flex items-center justify-center gap-2 cursor-pointer transition-colors"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <span>1. Minerar Ofertas</span>
+      </button>
+
+      <button 
+        id="tab-btn-publicados" 
+        class="flex-1 py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-bold text-sm text-center flex items-center justify-center gap-2 cursor-pointer transition-colors"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+        </svg>
+        <span>2. No Ar (<span id="badge-total-publicados">0</span>)</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= CONTEÚDO PRINCIPAL ================= -->
+  <main class="flex-1 max-w-4xl w-full mx-auto px-4 py-6">
+
+    <!-- ================= SEÇÃO: ABA MINERAR ================= -->
+    <section id="tab-minerar" class="space-y-6">
+      
+      <!-- Accordion / Gaveta de Filtros Retrátil -->
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-lg">
+        <button 
+          id="btn-toggle-filtros" 
+          type="button" 
+          class="w-full px-5 py-4 flex items-center justify-between text-left cursor-pointer hover:bg-slate-800/40 transition-colors"
+        >
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-xl bg-orange-500/10 text-orange-400 flex items-center justify-center">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+              </svg>
+            </div>
+            <div>
+              <h2 class="text-sm font-bold text-white font-heading">Filtros de Mineração Shopee</h2>
+              <p class="text-[11px] text-slate-400">Clique para ajustar nichos, comissão e volume</p>
+            </div>
+          </div>
+          <svg id="icon-chevron-filtros" class="w-5 h-5 text-slate-400 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+
+        <form id="form-mineracao" class="p-5 border-t border-slate-800/80 space-y-4">
+          <!-- Palavras-chave / Nichos -->
+          <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1">Palavras-chave (separadas por vírgula)</label>
+            <input 
+              type="text" 
+              id="filter-keywords" 
+              value="organizador, cozinha, decoracao, fone bluetooth" 
+              class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700/80 rounded-xl text-white text-xs sm:text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+            />
+          </div>
+
+          <!-- Grade de Filtros em 2 colunas no mobile -->
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+            <div>
+              <label class="block text-slate-400 mb-1">Pág. Inicial / Final</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="filter-pag-ini" value="2" min="1" max="50" class="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-center"/>
+                <span class="text-slate-500">a</span>
+                <input type="number" id="filter-pag-fim" value="4" min="1" max="50" class="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-center"/>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-slate-400 mb-1">Preço Mín / Máx (R$)</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="filter-preco-min" value="35" class="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-center"/>
+                <span class="text-slate-500">a</span>
+                <input type="number" id="filter-preco-max" value="160" class="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-center"/>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-slate-400 mb-1">Vendas Mín / Máx</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="filter-vendas-min" value="20" class="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-center"/>
+                <span class="text-slate-500">a</span>
+                <input type="number" id="filter-vendas-max" value="500" class="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-center"/>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-slate-400 mb-1">Comissão Mín (%)</label>
+              <input type="number" id="filter-comissao-pct" value="10" step="0.5" class="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-center"/>
+            </div>
+
+            <div>
+              <label class="block text-slate-400 mb-1">Comissão Mín (R$)</label>
+              <input type="number" id="filter-comissao-reais" value="8" step="0.5" class="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-center"/>
+            </div>
+
+            <div>
+              <label class="block text-slate-400 mb-1">Nota Mínima (★)</label>
+              <input type="number" id="filter-nota-min" value="4.7" step="0.1" class="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-center"/>
+            </div>
+          </div>
+
+          <!-- Botão de Ação -->
+          <div class="pt-2">
+            <button 
+              type="submit" 
+              id="btn-iniciar-mineracao"
+              class="w-full py-3.5 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white font-bold rounded-2xl text-sm shadow-md shadow-orange-600/30 flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer"
+            >
+              <svg id="icon-miner-btn" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+              </svg>
+              <span id="label-miner-btn">Iniciar Mineração na Shopee</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Barra de Status e Controles dos Resultados -->
+      <div id="status-mineracao-box" class="hidden flex items-center justify-between text-xs text-slate-400 px-1">
+        <span id="status-mineracao-txt">0 ofertas encontradas</span>
+        <button id="btn-toggle-select-all" type="button" class="text-orange-400 font-bold hover:underline cursor-pointer">
+          Selecionar Todos
+        </button>
+      </div>
+
+      <!-- Feed / Cards Verticais de Resultados da Mineração -->
+      <div id="mineracao-results-grid" class="space-y-4">
+        <div class="text-center py-12 px-4 bg-slate-900/50 border border-dashed border-slate-800 rounded-3xl">
+          <svg class="w-12 h-12 text-slate-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+          </svg>
+          <h3 class="text-sm font-bold text-slate-300">Nenhuma busca realizada ainda</h3>
+          <p class="text-xs text-slate-500 mt-1 max-w-xs mx-auto">Clique em "Iniciar Mineração na Shopee" para buscar as ofertas mais lucrativas.</p>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ================= SEÇÃO: ABA PUBLICADOS NO SITE ================= -->
+    <section id="tab-publicados" class="hidden space-y-4">
+      
+      <!-- Busca rápida nos publicados -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex items-center gap-3">
+        <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input 
+          type="text" 
+          id="search-publicados" 
+          placeholder="Filtrar por nome ou categoria..." 
+          class="bg-transparent text-white text-xs sm:text-sm w-full outline-none placeholder-slate-500"
+        />
+        <button id="btn-recarregar-publicados" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300" title="Recarregar do GitHub">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Feed dos Publicados -->
+      <div id="publicados-list" class="space-y-3">
+        <!-- Renderizado dinamicamente via painel.js -->
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ================= BARRA DE AÇÃO FIXA MOBILE (FOOTER BAR) ================= -->
+  <div id="mobile-action-bar" class="fixed bottom-0 inset-x-0 z-40 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 p-3 sm:py-4 shadow-2xl">
+    <div class="max-w-4xl mx-auto flex items-center justify-between gap-3">
+      
+      <div class="flex flex-col">
+        <span class="text-xs text-slate-400">Selecionados:</span>
+        <span id="selected-counter" class="text-base font-extrabold text-orange-400">0 produtos</span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button 
+          id="btn-selecionar-todos-footer" 
+          type="button" 
+          class="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all cursor-pointer"
+        >
+          Todos
+        </button>
+
+        <button 
+          id="btn-publicar-selecionados" 
+          type="button" 
+          disabled
+          class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-extrabold text-xs sm:text-sm shadow-lg shadow-orange-600/30 flex items-center gap-2 active:scale-95 transition-all cursor-pointer"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+          <span id="btn-publicar-label">Publicar no Site</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Toast de Notificações -->
+  <div id="toast" class="fixed top-4 right-4 z-50 transform -translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+    <div id="toast-body" class="px-4 py-3 rounded-2xl shadow-2xl text-xs sm:text-sm font-bold flex items-center gap-2 bg-slate-800 text-white border border-slate-700">
+      <span id="toast-msg">Mensagem</span>
+    </div>
+  </div>
+
+  <script src="js/painel.js"></script>
+</body>
+</html>
