@@ -420,18 +420,6 @@
     "link_afiliado": "https://shopee.com.br/search?keyword=luminaria+mesa+articulada+led"
   },
   {
-    "id": "prod-006",
-    "titulo": "Fone de Ouvido Bluetooth TWS com Cancelamento de Ruído",
-    "preco": 54.9,
-    "preco_original": 119,
-    "desconto": 54,
-    "nota": 4.8,
-    "vendas": 15600,
-    "categoria": "eletronicos",
-    "imagem": "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=700&q=80",
-    "link_afiliado": "https://shopee.com.br/search?keyword=fone+bluetooth+tws+sem+fio"
-  },
-  {
     "id": "prod-007",
     "titulo": "Kit Skincare Sérum Vitamina C + Ácido Hialurônico Concentrado",
     "preco": 42.9,
