@@ -34,7 +34,7 @@
   // Estado da aplicação
   let adminPassword = sessionStorage.getItem('mimi_admin_password') || '';
   let activeTab = 'minerar';
-  let selectedShopeeCategories = new Set(['casa', 'cozinha', 'beleza', 'eletronicos']);
+  let selectedShopeeCategories = new Set(); // Inicia vazio (nenhuma categoria pré-selecionada)
 
   let mineradosList = [];
   let mineradosSelectedIds = new Set();
@@ -266,12 +266,16 @@
     badgeCatCount.textContent = `${total} ${total === 1 ? 'selecionada' : 'selecionadas'}`;
     
     if (total === 0) {
-      catDrawerSummary.textContent = 'Nenhuma categoria oficial selecionada';
+      badgeCatCount.className = 'text-[10px] font-bold bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full';
+      catDrawerSummary.textContent = 'Selecionar categorias';
+      catDrawerSummary.classList.add('text-slate-400');
     } else {
+      badgeCatCount.className = 'text-[10px] font-bold bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full';
       const labels = SHOPEE_CATEGORIAS_OFICIAIS
         .filter(c => selectedShopeeCategories.has(c.id))
         .map(c => c.label.split(' ')[0]);
       catDrawerSummary.textContent = labels.join(', ');
+      catDrawerSummary.classList.remove('text-slate-400');
     }
 
     document.querySelectorAll('.shopee-cat-checkbox').forEach(cb => {
