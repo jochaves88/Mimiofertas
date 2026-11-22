@@ -442,17 +442,5 @@
     "categoria": "beleza",
     "imagem": "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=700&q=80",
     "link_afiliado": "https://shopee.com.br/search?keyword=serum+vitamina+c+acido+hialuronico"
-  },
-  {
-    "id": "prod-008",
-    "titulo": "Mini Projetor Portátil Smart Cinema Full HD 1080p Wi-Fi",
-    "preco": 289.9,
-    "preco_original": 499,
-    "desconto": 42,
-    "nota": 4.7,
-    "vendas": 2890,
-    "categoria": "eletronicos",
-    "imagem": "https://images.unsplash.com/photo-1535016120720-40c646be5580?auto=format&fit=crop&w=700&q=80",
-    "link_afiliado": "https://shopee.com.br/search?keyword=mini+projetor+portatil+smart+wifi"
   }
 ]
