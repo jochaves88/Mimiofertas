@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Pinterest & Search Bot Verification
+User-agent: Pinterestbot
+Allow: /
+
+Sitemap: https://jochaves88.github.io/Mimiofertas/sitemap.xml

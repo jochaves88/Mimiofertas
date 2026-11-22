@@ -1,0 +1,98 @@
+[
+  {
+    "id": "prod-001",
+    "titulo": "Robô Aspirador de Pó Inteligente Bivolt com Função Passa Pano",
+    "preco": 149.90,
+    "preco_original": 289.00,
+    "desconto": 48,
+    "nota": 4.9,
+    "vendas": 4320,
+    "categoria": "casa",
+    "imagem": "https://images.unsplash.com/photo-1518640467707-6811f4a6ab73?auto=format&fit=crop&w=700&q=80",
+    "link_afiliado": "https://shopee.com.br/search?keyword=robo+aspirador+inteligente"
+  },
+  {
+    "id": "prod-002",
+    "titulo": "Fritadeira Elétrica Air Fryer Digital 4.5L Antiaderente",
+    "preco": 239.90,
+    "preco_original": 399.00,
+    "desconto": 40,
+    "nota": 4.8,
+    "vendas": 5810,
+    "categoria": "cozinha",
+    "imagem": "https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=700&q=80",
+    "link_afiliado": "https://shopee.com.br/search?keyword=air+fryer+digital+4.5l"
+  },
+  {
+    "id": "prod-003",
+    "titulo": "Kit 12 Organizadores Herméticos para Alimentos com Trava",
+    "preco": 89.90,
+    "preco_original": 159.00,
+    "desconto": 43,
+    "nota": 4.9,
+    "vendas": 12400,
+    "categoria": "cozinha",
+    "imagem": "https://images.unsplash.com/photo-1584992236310-6edddc08acff?auto=format&fit=crop&w=700&q=80",
+    "link_afiliado": "https://shopee.com.br/search?keyword=kit+potes+hermeticos+alimentos"
+  },
+  {
+    "id": "prod-004",
+    "titulo": "Escova Secadora e Modeladora 4 em 1 Cerâmica Ionizada",
+    "preco": 79.90,
+    "preco_original": 149.90,
+    "desconto": 47,
+    "nota": 4.7,
+    "vendas": 8950,
+    "categoria": "beleza",
+    "imagem": "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=700&q=80",
+    "link_afiliado": "https://shopee.com.br/search?keyword=escova+secadora+4+em+1"
+  },
+  {
+    "id": "prod-005",
+    "titulo": "Luminária de Mesa Articulada LED com Carregamento por Indução",
+    "preco": 69.90,
+    "preco_original": 129.00,
+    "desconto": 46,
+    "nota": 4.8,
+    "vendas": 3120,
+    "categoria": "casa",
+    "imagem": "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=700&q=80",
+    "link_afiliado": "https://shopee.com.br/search?keyword=luminaria+mesa+articulada+led"
+  },
+  {
+    "id": "prod-006",
+    "titulo": "Fone de Ouvido Bluetooth TWS com Cancelamento de Ruído",
+    "preco": 54.90,
+    "preco_original": 119.00,
+    "desconto": 54,
+    "nota": 4.8,
+    "vendas": 15600,
+    "categoria": "eletronicos",
+    "imagem": "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=700&q=80",
+    "link_afiliado": "https://shopee.com.br/search?keyword=fone+bluetooth+tws+sem+fio"
+  },
+  {
+    "id": "prod-007",
+    "titulo": "Kit Skincare Sérum Vitamina C + Ácido Hialurônico Concentrado",
+    "preco": 42.90,
+    "preco_original": 89.90,
+    "desconto": 52,
+    "nota": 4.9,
+    "vendas": 7430,
+    "categoria": "beleza",
+    "imagem": "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=700&q=80",
+    "link_afiliado": "https://shopee.com.br/search?keyword=serum+vitamina+c+acido+hialuronico"
+  },
+  {
+    "id": "prod-008",
+    "titulo": "Mini Projetor Portátil Smart Cinema Full HD 1080p Wi-Fi",
+    "preco": 289.90,
+    "preco_original": 499.00,
+    "desconto": 42,
+    "nota": 4.7,
+    "vendas": 2890,
+    "categoria": "eletronicos",
+    "imagem": "https://images.unsplash.com/photo-1535016120720-40c646be5580?auto=format&fit=crop&w=700&q=80",
+    "link_afiliado": "https://shopee.com.br/search?keyword=mini+projetor+portatil+smart+wifi"
+  }
+]
