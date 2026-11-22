@@ -15,7 +15,6 @@ function generateShopeeSignature(appId, secret, timestamp, payloadStr) {
 }
 
 exports.handler = async (event) => {
-  // Configurar CORS para o painel
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type, x-admin-password',
@@ -24,7 +23,7 @@ exports.handler = async (event) => {
   };
 
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
+    return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
   }
 
   if (event.httpMethod !== 'POST') {
@@ -32,7 +31,7 @@ exports.handler = async (event) => {
   }
 
   if (!checkAuth(event)) {
-    return { statusCode: 401, headers, body: JSON.stringify({ error: 'Não autorizado. Senha inválida.' }) };
+    return { statusCode: 401, headers, body: JSON.stringify({ error: 'Não autorizado. Senha de admin inválida.' }) };
   }
 
   const appId = process.env.SHOPEE_APP_ID;
@@ -42,20 +41,23 @@ exports.handler = async (event) => {
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Configuração de API Shopee ausente no ambiente (SHOPEE_APP_ID / SHOPEE_SECRET).' })
+      body: JSON.stringify({ error: 'SHOPEE_APP_ID ou SHOPEE_SECRET não configurados no ambiente Netlify.' })
     };
   }
 
   try {
-    const body = JSON.parse(event.body || '{}');
+    let body = {};
+    try {
+      body = JSON.parse(event.body || '{}');
+    } catch (e) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'JSON de requisição malformado.' }) };
+    }
 
-    // Extrair parâmetros e filtros com defaults
-    const keywords = Array.isArray(body.keywords) && body.keywords.length > 0 
-      ? body.keywords 
-      : ['organizador', 'cozinha', 'decoracao', 'fone bluetooth'];
+    // Recebe apenas 1 keyword e 1 página por requisição (respostas ultra rápidas < 2s)
+    const keyword = (body.keyword || 'achadinhos').toString().trim();
+    const page = parseInt(body.page, 10) || 1;
 
-    const paginaInicial = parseInt(body.paginaInicial, 10) || 1;
-    const paginaFinal = parseInt(body.paginaFinal, 10) || 3;
+    // Filtros opcionais aplicados nesta página
     const precoMin = parseFloat(body.precoMin) || 0;
     const precoMax = parseFloat(body.precoMax) || 999999;
     const vendasMin = parseInt(body.vendasMin, 10) || 0;
@@ -89,85 +91,82 @@ exports.handler = async (event) => {
       }
     `;
 
-    const rawOffers = [];
-
-    // Iterar sobre keywords e páginas
-    for (const keyword of keywords) {
-      for (let page = paginaInicial; page <= paginaFinal; page++) {
-        const payloadObj = {
-          query: graphqlQuery,
-          variables: {
-            keyword: keyword.trim(),
-            page: page,
-            limit: 50
-          }
-        };
-
-        const payloadStr = JSON.stringify(payloadObj);
-        const timestamp = Math.floor(Date.now() / 1000);
-        const signature = generateShopeeSignature(appId, secret, timestamp, payloadStr);
-        const authHeader = `SHA256 Credential=${appId}, Timestamp=${timestamp}, Signature=${signature}`;
-
-        try {
-          const res = await fetch(shopeeApiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': authHeader
-            },
-            body: payloadStr
-          });
-
-          if (!res.ok) {
-            const errText = await res.text();
-            console.error(`Shopee API error for ${keyword} p${page}:`, res.status, errText);
-            continue;
-          }
-
-          const resJson = await res.json();
-          const nodes = resJson?.data?.productOfferV2?.nodes;
-          if (Array.isArray(nodes) && nodes.length > 0) {
-            rawOffers.push(...nodes);
-          }
-        } catch (fetchErr) {
-          console.error(`Fetch error for keyword "${keyword}" page ${page}:`, fetchErr);
-        }
+    const payloadObj = {
+      query: graphqlQuery,
+      variables: {
+        keyword: keyword,
+        page: page,
+        limit: 50
       }
+    };
+
+    const payloadStr = JSON.stringify(payloadObj);
+    const timestamp = Math.floor(Date.now() / 1000);
+    const signature = generateShopeeSignature(appId, secret, timestamp, payloadStr);
+    const authHeader = `SHA256 Credential=${appId}, Timestamp=${timestamp}, Signature=${signature}`;
+
+    const resShopee = await fetch(shopeeApiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': authHeader
+      },
+      body: payloadStr
+    });
+
+    if (!resShopee.ok) {
+      const errText = await resShopee.text();
+      return {
+        statusCode: resShopee.status,
+        headers,
+        body: JSON.stringify({ 
+          error: `Erro retornado pela API da Shopee (${resShopee.status}): ${errText.slice(0, 200)}` 
+        })
+      };
     }
 
-    // Deduplicar e aplicar filtros
-    const seenItems = new Map();
+    const resJson = await resShopee.json();
+    if (resJson.errors && resJson.errors.length > 0) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ 
+          error: `Erro GraphQL Shopee: ${resJson.errors[0].message || 'Falha na consulta'}` 
+        })
+      };
+    }
 
-    for (const item of rawOffers) {
+    const nodes = resJson?.data?.productOfferV2?.nodes || [];
+    const hasNextPage = resJson?.data?.productOfferV2?.pageInfo?.hasNextPage || false;
+
+    // Filtragem dos itens recebidos nesta página
+    const itensFiltrados = [];
+
+    for (const item of nodes) {
       if (!item || !item.itemId) continue;
-      const itemIdStr = String(item.itemId);
-      if (seenItems.has(itemIdStr)) continue;
 
       const price = parseFloat(item.priceMin) || 0;
       const sales = parseInt(item.sales, 10) || 0;
       const rating = parseFloat(item.ratingStar) || 0;
-      
-      // commissionRate geralmente vem em fração ou porcentagem (ex: 0.12 ou 12)
+
       let commRate = parseFloat(item.commissionRate) || 0;
       if (commRate > 0 && commRate <= 1) {
         commRate = commRate * 100;
       }
 
-      // commission estimada em R$
       let commValue = parseFloat(item.commission) || 0;
       if (commValue === 0 && commRate > 0 && price > 0) {
         commValue = (price * commRate) / 100;
       }
 
-      // Aplicar filtros especificados
       if (price < precoMin || price > precoMax) continue;
       if (sales < vendasMin || sales > vendasMax) continue;
       if (rating < notaMin) continue;
       if (commRate < comissaoPctMin) continue;
       if (commValue < comissaoReaisMin) continue;
 
-      seenItems.set(itemIdStr, {
-        itemId: itemIdStr,
+      itensFiltrados.push({
+        itemId: String(item.itemId),
         productName: item.productName || 'Achadinho Shopee',
         priceMin: price,
         sales: sales,
@@ -179,24 +178,23 @@ exports.handler = async (event) => {
       });
     }
 
-    // Ordenar por maior valor de comissão em Reais
-    const filteredResults = Array.from(seenItems.values()).sort((a, b) => b.commission - a.commission);
-
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         success: true,
-        totalEncontrado: filteredResults.length,
-        produtos: filteredResults
+        keyword,
+        page,
+        hasNextPage,
+        totalPagina: itensFiltrados.length,
+        produtos: itensFiltrados
       })
     };
   } catch (err) {
-    console.error('Erro na função minerar:', err);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Erro interno ao minerar ofertas: ' + err.message })
+      body: JSON.stringify({ error: 'Erro interno ao processar mineração: ' + err.message })
     };
   }
 };

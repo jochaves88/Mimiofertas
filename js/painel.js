@@ -1,20 +1,18 @@
 /**
  * Mimi Ofertas - Painel Gerenciador e Minerador Shopee
- * Lógica 100% Mobile-First e integração com Netlify Functions
+ * Lógica 100% Mobile-First, com requisições granulares anti-timeout e diagnóstico HTTP resiliente
  */
 
 (function () {
-  // URLs das Netlify Functions
   const API_MINERAR = '/.netlify/functions/minerar';
   const API_PUBLICAR = '/.netlify/functions/publicar';
 
-  // Estado Local
   let adminPassword = sessionStorage.getItem('mimi_admin_password') || '';
   let activeTab = 'minerar';
   let mineradosList = [];
   let publicadosList = [];
   let selectedIds = new Set();
-  let categoryMap = {}; // itemId -> categoria selecionada
+  let categoryMap = {};
 
   // Elementos do DOM
   const loginModal = document.getElementById('login-modal');
@@ -77,7 +75,25 @@
     }, 3500);
   }
 
-  // ================= INICIALIZAÇÃO E AUTENTICAÇÃO =================
+  // Função utilitária segura para fetch com verificação estrita de JSON e status
+  async function safeFetchJson(url, options = {}) {
+    const res = await fetch(url, options);
+    const contentType = res.headers.get('content-type') || '';
+
+    if (!contentType.includes('application/json')) {
+      const rawText = await res.text();
+      const snippet = (rawText || '').trim().slice(0, 150) || '(resposta vazia)';
+      throw new Error(`Resposta inválida [HTTP ${res.status}]: ${snippet}`);
+    }
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || `Erro HTTP ${res.status}`);
+    }
+    return data;
+  }
+
+  // ================= INICIALIZAÇÃO =================
   function init() {
     if (adminPassword) {
       loginModal.classList.add('hidden');
@@ -85,7 +101,6 @@
     } else {
       loginModal.classList.remove('hidden');
     }
-
     setupEventListeners();
   }
 
@@ -102,24 +117,17 @@
       submitBtn.disabled = true;
 
       try {
-        // Testa a senha contra o endpoint publicar (GET)
-        const res = await fetch(API_PUBLICAR, {
+        const data = await safeFetchJson(API_PUBLICAR, {
           headers: { 'x-admin-password': pwd }
         });
-
-        if (res.status === 401) {
-          throw new Error('Senha incorreta.');
-        }
-
-        if (!res.ok && res.status !== 500) {
-          throw new Error(`Erro ao conectar: ${res.statusText}`);
-        }
 
         adminPassword = pwd;
         sessionStorage.setItem('mimi_admin_password', pwd);
         loginModal.classList.add('hidden');
         showToast('Login realizado com sucesso!');
-        loadPublicados();
+        publicadosList = data.produtos || [];
+        badgeTotalPublicados.textContent = publicadosList.length;
+        renderPublicados();
       } catch (err) {
         loginError.textContent = err.message || 'Erro na autenticação.';
         loginError.classList.remove('hidden');
@@ -137,7 +145,7 @@
       adminPasswordInput.value = '';
     });
 
-    // Tabs Switch
+    // Tabs
     tabBtnMinerar.addEventListener('click', () => switchTab('minerar'));
     tabBtnPublicados.addEventListener('click', () => switchTab('publicados'));
 
@@ -147,17 +155,17 @@
       iconChevronFiltros.classList.toggle('rotate-180');
     });
 
-    // Formulário de Mineração
+    // Submissão da Mineração
     formMineracao.addEventListener('submit', async (e) => {
       e.preventDefault();
-      await executarMineracao();
+      await executarMineracaoGranular();
     });
 
-    // Selecionar Todos
+    // Seleção em massa
     btnToggleSelectAll.addEventListener('click', toggleSelectAll);
     btnSelecionarTodosFooter.addEventListener('click', toggleSelectAll);
 
-    // Publicar Selecionados no Site (GitHub)
+    // Publicar no GitHub
     btnPublicarSelecionados.addEventListener('click', async () => {
       await publicarItensSelecionados();
     });
@@ -169,7 +177,6 @@
       });
     }
 
-    // Botão Recarregar
     if (btnRecarregarPublicados) {
       btnRecarregarPublicados.addEventListener('click', loadPublicados);
     }
@@ -197,27 +204,41 @@
     }
   }
 
-  // ================= MINERAÇÃO DE OFERTAS =================
-  async function executarMineracao() {
+  // ================= MINERAÇÃO GRANULAR (LOOP NO FRONTEND COM BARRA DE PROGRESSO) =================
+  async function executarMineracaoGranular() {
     const rawKeywords = document.getElementById('filter-keywords').value;
     const keywords = rawKeywords.split(',').map(s => s.trim()).filter(Boolean);
 
-    const payload = {
-      keywords: keywords,
-      paginaInicial: parseInt(document.getElementById('filter-pag-ini').value, 10) || 2,
-      paginaFinal: parseInt(document.getElementById('filter-pag-fim').value, 10) || 4,
-      precoMin: parseFloat(document.getElementById('filter-preco-min').value) || 0,
-      precoMax: parseFloat(document.getElementById('filter-preco-max').value) || 999999,
-      vendasMin: parseInt(document.getElementById('filter-vendas-min').value, 10) || 0,
-      vendasMax: parseInt(document.getElementById('filter-vendas-max').value, 10) || 999999,
-      comissaoPctMin: parseFloat(document.getElementById('filter-comissao-pct').value) || 0,
-      comissaoReaisMin: parseFloat(document.getElementById('filter-comissao-reais').value) || 0,
-      notaMin: parseFloat(document.getElementById('filter-nota-min').value) || 0
-    };
+    if (keywords.length === 0) {
+      showToast('Insira ao menos uma palavra-chave para minerar.', true);
+      return;
+    }
 
-    // UI Loading state
+    const pagIni = parseInt(document.getElementById('filter-pag-ini').value, 10) || 1;
+    const pagFim = parseInt(document.getElementById('filter-pag-fim').value, 10) || 3;
+    const precoMin = parseFloat(document.getElementById('filter-preco-min').value) || 0;
+    const precoMax = parseFloat(document.getElementById('filter-preco-max').value) || 999999;
+    const vendasMin = parseInt(document.getElementById('filter-vendas-min').value, 10) || 0;
+    const vendasMax = parseInt(document.getElementById('filter-vendas-max').value, 10) || 999999;
+    const comissaoPctMin = parseFloat(document.getElementById('filter-comissao-pct').value) || 0;
+    const comissaoReaisMin = parseFloat(document.getElementById('filter-comissao-reais').value) || 0;
+    const notaMin = parseFloat(document.getElementById('filter-nota-min').value) || 0;
+
+    // Calcular o total de passos para a barra de progresso
+    const steps = [];
+    for (const kw of keywords) {
+      for (let p = pagIni; p <= pagFim; p++) {
+        steps.push({ keyword: kw, page: p });
+      }
+    }
+
+    const totalSteps = steps.length;
+    let completedSteps = 0;
+    const itensAcumulados = new Map();
+
+    // UI Loading com barra de progresso
     btnIniciarMineracao.disabled = true;
-    labelMinerBtn.textContent = 'Minerando na Shopee...';
+    labelMinerBtn.textContent = 'Minerando...';
     iconMinerBtn.innerHTML = `
       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
       <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
@@ -225,49 +246,89 @@
     iconMinerBtn.classList.add('animate-spin');
 
     mineracaoResultsGrid.innerHTML = `
-      <div class="text-center py-12 px-4 bg-slate-900 border border-slate-800 rounded-3xl">
-        <svg class="w-10 h-10 text-orange-500 animate-spin mx-auto mb-3" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <p class="text-sm font-bold text-white">Consultando API Shopee & Calculando Comissões...</p>
-        <p class="text-xs text-slate-400 mt-1">Filtrando os itens mais lucrativos por página.</p>
+      <div class="p-6 bg-slate-900 border border-slate-800 rounded-3xl text-center space-y-4 shadow-xl">
+        <div class="flex items-center justify-between text-xs text-slate-400 font-bold">
+          <span id="progress-step-txt">Iniciando requisições...</span>
+          <span id="progress-pct-txt">0%</span>
+        </div>
+        <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden border border-slate-700/60">
+          <div id="progress-bar-fill" class="bg-gradient-to-r from-orange-500 to-amber-400 h-full rounded-full transition-all duration-300 w-0"></div>
+        </div>
+        <p id="progress-sub-txt" class="text-xs text-slate-500">Executando chamadas individuais para evitar timeouts.</p>
       </div>
     `;
 
-    try {
-      const res = await fetch(API_MINERAR, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-admin-password': adminPassword
-        },
-        body: JSON.stringify(payload)
-      });
+    const progressBarFill = document.getElementById('progress-bar-fill');
+    const progressStepTxt = document.getElementById('progress-step-txt');
+    const progressPctTxt = document.getElementById('progress-pct-txt');
+    const progressSubTxt = document.getElementById('progress-sub-txt');
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Falha ao minerar produtos.');
+    try {
+      for (const step of steps) {
+        if (progressStepTxt) {
+          progressStepTxt.textContent = `Buscando "${step.keyword}" (página ${step.page})...`;
+        }
+        if (progressSubTxt) {
+          progressSubTxt.textContent = `${itensAcumulados.size} achadinhos aprovados pelos filtros até agora.`;
+        }
+
+        try {
+          const data = await safeFetchJson(API_MINERAR, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-admin-password': adminPassword
+            },
+            body: JSON.stringify({
+              keyword: step.keyword,
+              page: step.page,
+              precoMin,
+              precoMax,
+              vendasMin,
+              vendasMax,
+              comissaoPctMin,
+              comissaoReaisMin,
+              notaMin
+            })
+          });
+
+          if (Array.isArray(data.produtos)) {
+            for (const item of data.produtos) {
+              if (item && item.itemId && !itensAcumulados.has(item.itemId)) {
+                itensAcumulados.set(item.itemId, item);
+              }
+            }
+          }
+        } catch (stepErr) {
+          console.warn(`Erro no passo ${step.keyword} p${step.page}:`, stepErr.message);
+          // Continua os outros passos mesmo que uma página falhe
+        }
+
+        completedSteps++;
+        const pct = Math.round((completedSteps / totalSteps) * 100);
+        if (progressBarFill) progressBarFill.style.width = `${pct}%`;
+        if (progressPctTxt) progressPctTxt.textContent = `${pct}%`;
       }
 
-      mineradosList = data.produtos || [];
+      // Ordenar por maior comissão em Reais
+      mineradosList = Array.from(itensAcumulados.values()).sort((a, b) => b.commission - a.commission);
       selectedIds.clear();
       updateSelectedCounter();
 
       statusMineracaoBox.classList.remove('hidden');
       statusMineracaoTxt.textContent = `${mineradosList.length} ofertas mineradas (ordenadas por maior comissão)`;
 
-      // Recolher accordion após sucesso no mobile
+      // Fechar accordion de filtros
       formMineracao.classList.add('hidden');
       iconChevronFiltros.classList.remove('rotate-180');
 
       renderMinerados();
-      showToast(`${mineradosList.length} ofertas mineradas com sucesso!`);
+      showToast(`${mineradosList.length} ofertas encontradas!`);
     } catch (err) {
       mineracaoResultsGrid.innerHTML = `
-        <div class="p-6 bg-red-950/40 border border-red-800/80 rounded-3xl text-center">
-          <p class="text-sm font-bold text-red-300">Erro na mineração: ${err.message}</p>
-          <p class="text-xs text-red-400/80 mt-1">Verifique se as credenciais SHOPEE_APP_ID e SHOPEE_SECRET estão na Netlify.</p>
+        <div class="p-6 bg-red-950/40 border border-red-800 rounded-3xl text-center">
+          <p class="text-sm font-bold text-red-300">Falha na mineração</p>
+          <p class="text-xs text-red-400 mt-2 font-mono break-all">${err.message}</p>
         </div>
       `;
       showToast(err.message, true);
@@ -284,7 +345,7 @@
       mineracaoResultsGrid.innerHTML = `
         <div class="p-8 bg-slate-900 border border-slate-800 rounded-3xl text-center">
           <p class="text-sm text-slate-400">Nenhum produto atendeu aos critérios deste filtro.</p>
-          <p class="text-xs text-slate-500 mt-1">Experimente reduzir a nota mínima ou aumentar o intervalo de páginas.</p>
+          <p class="text-xs text-slate-500 mt-1">Experimente reduzir a nota mínima ou ampliar a faixa de preço.</p>
         </div>
       `;
       return;
@@ -298,7 +359,6 @@
       return `
         <div class="bg-slate-900 border ${isSelected ? 'border-orange-500 ring-1 ring-orange-500/50' : 'border-slate-800'} rounded-3xl p-4 flex flex-col sm:flex-row gap-4 transition-all">
           
-          <!-- Imagem e Checkbox Touch -->
           <div class="relative w-full sm:w-28 h-44 sm:h-28 rounded-2xl overflow-hidden bg-slate-950 shrink-0">
             <img src="${item.imageUrl}" alt="${item.productName}" class="w-full h-full object-cover"/>
             
@@ -311,13 +371,11 @@
               />
             </label>
 
-            <!-- Badge Comissão R$ -->
             <div class="absolute bottom-2 right-2 bg-emerald-500 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-full shadow">
               +R$ ${item.commission.toFixed(2)}
             </div>
           </div>
 
-          <!-- Informações do Card -->
           <div class="flex-1 flex flex-col justify-between space-y-2.5">
             <div>
               <div class="flex items-center justify-between gap-2">
@@ -335,7 +393,6 @@
               </h4>
             </div>
 
-            <!-- Preço e Seletor de Categoria -->
             <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
               <div class="text-base font-black text-orange-400">
                 R$ ${item.priceMin.toFixed(2).replace('.', ',')}
@@ -372,7 +429,6 @@
       `;
     }).join('');
 
-    // Adicionar eventos aos checkboxes e selects
     document.querySelectorAll('.item-checkbox').forEach(cb => {
       cb.addEventListener('change', (e) => {
         const id = e.target.dataset.id;
@@ -382,7 +438,6 @@
           selectedIds.delete(id);
         }
         updateSelectedCounter();
-        // Feedback visual do card
         const card = e.target.closest('.rounded-3xl');
         if (card) {
           if (e.target.checked) {
@@ -450,10 +505,10 @@
       });
 
     btnPublicarSelecionados.disabled = true;
-    btnPublicarLabel.textContent = 'Enviando ao GitHub...';
+    btnPublicarLabel.textContent = 'Publicando...';
 
     try {
-      const res = await fetch(API_PUBLICAR, {
+      await safeFetchJson(API_PUBLICAR, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -466,12 +521,7 @@
         })
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Erro ao publicar no GitHub.');
-      }
-
-      showToast(`${itensParaPublicar.length} ofertas publicadas no GitHub com sucesso!`);
+      showToast(`${itensParaPublicar.length} ofertas publicadas no GitHub!`);
       selectedIds.clear();
       updateSelectedCounter();
       renderMinerados();
@@ -495,13 +545,10 @@
     `;
 
     try {
-      const res = await fetch(API_PUBLICAR, {
+      const data = await safeFetchJson(API_PUBLICAR, {
         method: 'GET',
         headers: { 'x-admin-password': adminPassword }
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Erro ao obter dados do GitHub');
 
       publicadosList = data.produtos || [];
       badgeTotalPublicados.textContent = publicadosList.length;
@@ -557,9 +604,8 @@
       `;
     }).join('');
 
-    // Eventos de Remoção
     document.querySelectorAll('.btn-remover-item').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
+      btn.addEventListener('click', async () => {
         const id = btn.dataset.id;
         if (!confirm('Deseja realmente remover este produto do site?')) return;
         await removerProdutoDoSite(id);
@@ -570,7 +616,7 @@
   async function removerProdutoDoSite(id) {
     try {
       showToast('Removendo produto no GitHub...');
-      const res = await fetch(API_PUBLICAR, {
+      await safeFetchJson(API_PUBLICAR, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -583,9 +629,6 @@
         })
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Erro ao remover do GitHub');
-
       showToast('Produto removido com sucesso!');
       await loadPublicados();
     } catch (err) {
@@ -593,7 +636,6 @@
     }
   }
 
-  // Executar
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
