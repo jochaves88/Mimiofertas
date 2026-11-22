@@ -8,6 +8,7 @@
   const API_MINERAR = '/api/minerar';
   const API_PUBLICAR = '/api/publicar';
   const API_GERAR_LINK = '/api/gerar-link';
+  const API_PROXY_IMAGEM = '/api/proxy-imagem';
 
   // Cache em memória de links rastreados para evitar chamadas redundantes
   // chave: `${originUrl}_${plataforma}` -> shortLink
@@ -179,14 +180,21 @@
 
   // Ação de Compartilhar via WhatsApp ou Pinterest
   async function dispararCompartilhamento(item, plataforma, btnElement) {
-    const originalHtml = btnElement.innerHTML;
-    btnElement.disabled = true;
-    btnElement.innerHTML = `
-      <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-      </svg>
-    `;
+    if (plataforma === 'pinterest') {
+      abrirModalPinterest(item);
+      return;
+    }
+
+    const originalHtml = btnElement ? btnElement.innerHTML : '';
+    if (btnElement) {
+      btnElement.disabled = true;
+      btnElement.innerHTML = `
+        <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+        </svg>
+      `;
+    }
 
     try {
       const originUrl = item.offerLink || item.link_afiliado || item.productLink || '';
@@ -196,24 +204,21 @@
       const notaFmt = (item.ratingStar || item.nota || 4.8).toFixed(1);
       const vendasFmt = item.sales || item.vendas || 0;
       const titulo = item.productName || item.titulo || 'Achadinho Shopee';
-      const imagem = item.imageUrl || item.imagem || '';
 
       if (plataforma === 'whatsapp') {
         const copyWhatsapp = `🔥 *${titulo}*\n💰 Por apenas *R$ ${precoFmt}*\n⭐ Nota ${notaFmt} | ${vendasFmt} vendidos\n\n👉 Garanta aqui: ${shortLink}`;
         const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(copyWhatsapp)}`;
         window.open(waUrl, '_blank', 'noopener,noreferrer');
-      } else if (plataforma === 'pinterest') {
-        const pinDesc = `${titulo} por apenas R$ ${precoFmt}! #shopee #achadinhos #ofertas`;
-        const pinUrl = `https://pinterest.com/pin/create/button/?url=${encodeURIComponent(shortLink)}&media=${encodeURIComponent(imagem)}&description=${encodeURIComponent(pinDesc)}`;
-        window.open(pinUrl, '_blank', 'noopener,noreferrer');
       }
 
       showToast(`Link de ${plataforma} gerado com sucesso!`);
     } catch (err) {
       showToast(`Erro ao gerar link de ${plataforma}: ${err.message}`, true);
     } finally {
-      btnElement.disabled = false;
-      btnElement.innerHTML = originalHtml;
+      if (btnElement) {
+        btnElement.disabled = false;
+        btnElement.innerHTML = originalHtml;
+      }
     }
   }
 
@@ -424,6 +429,9 @@
         await excluirLotePublicados();
       });
     }
+
+    // Modal Criar Novo Pin (Pinterest)
+    setupPinterestModalEvents();
   }
 
   function switchTab(tab) {
@@ -1111,6 +1119,740 @@
     } catch (err) {
       showToast(err.message, true);
     }
+  }
+
+  // ================= MODAL: CRIAR NOVO PIN (PINTEREST) =================
+  const modalPinterest = document.getElementById('modal-pinterest');
+  const btnCloseModalPinterest = document.getElementById('btn-close-modal-pinterest');
+  const pinLinkStatus = document.getElementById('pin-link-status');
+  const pinInputLink = document.getElementById('pin-input-link');
+  const btnCopyPinLink = document.getElementById('btn-copy-pin-link');
+
+  const btnImgModeShopee = document.getElementById('btn-img-mode-shopee');
+  const btnImgModeUrl = document.getElementById('btn-img-mode-url');
+  const btnImgModeFile = document.getElementById('btn-img-mode-file');
+  const pinBoxImgUrl = document.getElementById('pin-box-img-url');
+  const pinInputCustomUrl = document.getElementById('pin-input-custom-url');
+  const btnApplyCustomUrl = document.getElementById('btn-apply-custom-url');
+  const pinBoxImgFile = document.getElementById('pin-box-img-file');
+  const pinInputFile = document.getElementById('pin-input-file');
+  const btnTriggerFilePick = document.getElementById('btn-trigger-file-pick');
+  const pinFileSelectedName = document.getElementById('pin-file-selected-name');
+
+  const pinToggleCanvas = document.getElementById('pin-toggle-canvas');
+  const pinCanvasOptions = document.getElementById('pin-canvas-options');
+  const pinStyleClean = document.getElementById('pin-style-clean');
+  const pinStyleOrange = document.getElementById('pin-style-orange');
+  const pinShowPriceToggle = document.getElementById('pin-show-price-toggle');
+
+  const pinPreviewDim = document.getElementById('pin-preview-dim');
+  const pinPreviewSimpleWrap = document.getElementById('pin-preview-simple-wrap');
+  const pinPreviewImg = document.getElementById('pin-preview-img');
+  const pinPreviewCanvasWrap = document.getElementById('pin-preview-canvas-wrap');
+  const pinCanvas = document.getElementById('pin-canvas');
+
+  const pinInputTitulo = document.getElementById('pin-input-titulo');
+  const pinCounterTitulo = document.getElementById('pin-counter-titulo');
+  const btnCopyPinTitulo = document.getElementById('btn-copy-pin-titulo');
+
+  const pinInputDesc = document.getElementById('pin-input-desc');
+  const btnCopyPinDesc = document.getElementById('btn-copy-pin-desc');
+
+  const pinQuickShareNotice = document.getElementById('pin-quick-share-notice');
+  const btnPinPublicarRapido = document.getElementById('btn-pin-publicar-rapido');
+  const btnPinBaixarArte = document.getElementById('btn-pin-baixar-arte');
+  const btnPinBaixarLabel = document.getElementById('btn-pin-baixar-label');
+  const btnPinAbrirCriador = document.getElementById('btn-pin-abrir-criador');
+
+  let currentPinItem = null;
+  let currentPinImgMode = 'shopee'; // 'shopee', 'url', 'file'
+  let currentPinCustomUrl = '';
+  let currentPinFileDataUrl = '';
+  let isPinCanvasMode = false;
+  let currentPinCanvasStyle = 'clean'; // 'clean', 'orange'
+  let isPinShowPrice = true;
+  let pinCanvasRenderToken = 0;
+
+  function getProxyImageUrl(rawUrl) {
+    if (!rawUrl) return '';
+    if (rawUrl.startsWith('data:')) return rawUrl;
+    const isShopee = /susercontent\.com|shopee\.com\.br|shopee\.com/i.test(rawUrl);
+    if (isShopee) {
+      return `${API_PROXY_IMAGEM}?url=${encodeURIComponent(rawUrl)}`;
+    }
+    return rawUrl;
+  }
+
+  function getActivePinImageUrl() {
+    if (currentPinImgMode === 'file') {
+      return currentPinFileDataUrl;
+    }
+    if (currentPinImgMode === 'url' && currentPinCustomUrl) {
+      return currentPinCustomUrl;
+    }
+    return (currentPinItem && (currentPinItem.imageUrl || currentPinItem.imagem)) || '';
+  }
+
+  function updatePinImageTabsUI() {
+    if (!btnImgModeShopee || !btnImgModeUrl || !btnImgModeFile) return;
+    const tabs = [
+      { btn: btnImgModeShopee, mode: 'shopee' },
+      { btn: btnImgModeUrl, mode: 'url' },
+      { btn: btnImgModeFile, mode: 'file' }
+    ];
+
+    tabs.forEach(({ btn, mode }) => {
+      if (currentPinImgMode === mode) {
+        btn.className = 'pin-img-tab min-h-[42px] px-2 py-2 rounded-xl text-xs font-bold border transition-all flex flex-col sm:flex-row items-center justify-center gap-1 cursor-pointer bg-red-600/20 border-red-500 text-white';
+      } else {
+        btn.className = 'pin-img-tab min-h-[42px] px-2 py-2 rounded-xl text-xs font-bold border transition-all flex flex-col sm:flex-row items-center justify-center gap-1 cursor-pointer bg-slate-800 border-slate-700 text-slate-300 hover:text-white';
+      }
+    });
+
+    if (currentPinImgMode === 'url') {
+      if (pinBoxImgUrl) pinBoxImgUrl.classList.remove('hidden');
+      if (pinBoxImgFile) pinBoxImgFile.classList.add('hidden');
+    } else if (currentPinImgMode === 'file') {
+      if (pinBoxImgFile) pinBoxImgFile.classList.remove('hidden');
+      if (pinBoxImgUrl) pinBoxImgUrl.classList.add('hidden');
+    } else {
+      if (pinBoxImgUrl) pinBoxImgUrl.classList.add('hidden');
+      if (pinBoxImgFile) pinBoxImgFile.classList.add('hidden');
+    }
+  }
+
+  function updatePinStyleButtons() {
+    if (!pinStyleClean || !pinStyleOrange) return;
+    if (currentPinCanvasStyle === 'clean') {
+      pinStyleClean.className = 'px-2.5 py-1 rounded-md text-[11px] font-bold transition-all bg-slate-700 text-white cursor-pointer';
+      pinStyleOrange.className = 'px-2.5 py-1 rounded-md text-[11px] font-bold transition-all text-slate-400 hover:text-white cursor-pointer';
+    } else {
+      pinStyleOrange.className = 'px-2.5 py-1 rounded-md text-[11px] font-bold transition-all bg-orange-600 text-white cursor-pointer';
+      pinStyleClean.className = 'px-2.5 py-1 rounded-md text-[11px] font-bold transition-all text-slate-400 hover:text-white cursor-pointer';
+    }
+  }
+
+  function copyTextWithFeedback(btn, text, label) {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      const txtSpan = btn.querySelector('.btn-copy-text');
+      if (txtSpan) {
+        const prev = txtSpan.textContent;
+        txtSpan.textContent = 'Copiado!';
+        setTimeout(() => { txtSpan.textContent = prev; }, 2000);
+      }
+      showToast(`${label} copiado com sucesso!`);
+    }).catch(() => {
+      showToast(`Erro ao copiar ${label}`, true);
+    });
+  }
+
+  function drawCanvasRoundRect(ctx, x, y, width, height, radius, fill, stroke) {
+    if (typeof radius === 'number') {
+      radius = { tl: radius, tr: radius, br: radius, bl: radius };
+    }
+    ctx.beginPath();
+    ctx.moveTo(x + radius.tl, y);
+    ctx.lineTo(x + width - radius.tr, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius.tr);
+    ctx.lineTo(x + width, y + height - radius.br);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius.br, y + height);
+    ctx.lineTo(x + radius.bl, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius.bl);
+    ctx.lineTo(x, y + radius.tl);
+    ctx.quadraticCurveTo(x, y, x + radius.tl, y);
+    ctx.closePath();
+    if (fill) ctx.fill();
+    if (stroke) ctx.stroke();
+  }
+
+  function drawCanvasWrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines = 2) {
+    const words = (text || '').trim().split(/\s+/);
+    let line = '';
+    const lines = [];
+
+    for (let n = 0; n < words.length; n++) {
+      const testLine = line ? `${line} ${words[n]}` : words[n];
+      const metrics = ctx.measureText(testLine);
+      if (metrics.width > maxWidth && line) {
+        lines.push(line);
+        line = words[n];
+        if (lines.length === maxLines - 1) {
+          const remaining = words.slice(n).join(' ');
+          let lastLine = remaining;
+          while (ctx.measureText(lastLine + '...').width > maxWidth && lastLine.length > 3) {
+            lastLine = lastLine.slice(0, -1);
+          }
+          lines.push(lastLine + '...');
+          line = '';
+          break;
+        }
+      } else {
+        line = testLine;
+      }
+    }
+    if (line && lines.length < maxLines) {
+      lines.push(line);
+    }
+
+    for (let k = 0; k < lines.length; k++) {
+      ctx.fillText(lines[k], x, y + (k * lineHeight));
+    }
+  }
+
+  async function renderPinCanvas(imgUrl) {
+    if (!pinCanvas) return;
+    const currentToken = ++pinCanvasRenderToken;
+    const ctx = pinCanvas.getContext('2d');
+    const W = 1000;
+    const H = 1500;
+
+    // 1. Fundo (Background)
+    if (currentPinCanvasStyle === 'clean') {
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#FFFFFF');
+      grad.addColorStop(0.5, '#F8FAFC');
+      grad.addColorStop(1, '#F1F5F9');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.fillStyle = '#E60023';
+      ctx.fillRect(0, 0, W, 10);
+    } else {
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#EE4D2D');
+      grad.addColorStop(0.7, '#EA580C');
+      grad.addColorStop(1, '#C2410C');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // 2. Selo Superior: "Achadinho Shopee • Mimi Ofertas"
+    ctx.save();
+    const pillText = "ACHADINHO SHOPEE • MIMI OFERTAS";
+    ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    const pillMetrics = ctx.measureText(pillText);
+    const pillW = pillMetrics.width + 48;
+    const pillH = 46;
+    const pillX = (W - pillW) / 2;
+    const pillY = 56;
+
+    if (currentPinCanvasStyle === 'clean') {
+      ctx.fillStyle = '#FEE2E2';
+      ctx.strokeStyle = '#FECACA';
+      ctx.lineWidth = 1.5;
+      drawCanvasRoundRect(ctx, pillX, pillY, pillW, pillH, 23, true, true);
+      ctx.fillStyle = '#DC2626';
+    } else {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = 1.5;
+      drawCanvasRoundRect(ctx, pillX, pillY, pillW, pillH, 23, true, true);
+      ctx.fillStyle = '#FFFFFF';
+    }
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(pillText, W / 2, pillY + (pillH / 2));
+    ctx.restore();
+
+    // 3. Moldura da Imagem (Card Branco Centralizado)
+    const cardX = 75;
+    const cardY = 126;
+    const cardW = 850;
+    const cardH = 850;
+    const cardRadius = 36;
+
+    ctx.save();
+    if (currentPinCanvasStyle === 'clean') {
+      ctx.shadowColor = 'rgba(15, 23, 42, 0.12)';
+      ctx.shadowBlur = 32;
+      ctx.shadowOffsetY = 14;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.strokeStyle = '#E2E8F0';
+      ctx.lineWidth = 3;
+      drawCanvasRoundRect(ctx, cardX, cardY, cardW, cardH, cardRadius, true, true);
+    } else {
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.28)';
+      ctx.shadowBlur = 36;
+      ctx.shadowOffsetY = 16;
+      ctx.fillStyle = '#FFFFFF';
+      drawCanvasRoundRect(ctx, cardX, cardY, cardW, cardH, cardRadius, true, false);
+    }
+    ctx.restore();
+
+    // 4. Desenhar Foto do Produto
+    if (imgUrl) {
+      try {
+        const resolvedSrc = getProxyImageUrl(imgUrl);
+        const loadedImg = await new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error('Imagem indisponível'));
+          img.src = resolvedSrc;
+        });
+
+        if (currentToken !== pinCanvasRenderToken) return;
+
+        ctx.save();
+        const imgInset = 16;
+        const imgBoxX = cardX + imgInset;
+        const imgBoxY = cardY + imgInset;
+        const imgBoxW = cardW - (imgInset * 2);
+        const imgBoxH = cardH - (imgInset * 2);
+
+        drawCanvasRoundRect(ctx, imgBoxX, imgBoxY, imgBoxW, imgBoxH, cardRadius - 8, false, false);
+        ctx.clip();
+
+        const aspect = loadedImg.width / loadedImg.height;
+        let dW, dH, dX, dY;
+        if (aspect > 1) {
+          dW = imgBoxW;
+          dH = imgBoxW / aspect;
+          dX = imgBoxX;
+          dY = imgBoxY + (imgBoxH - dH) / 2;
+        } else {
+          dH = imgBoxH;
+          dW = imgBoxH * aspect;
+          dX = imgBoxX + (imgBoxW - dW) / 2;
+          dY = imgBoxY;
+        }
+        ctx.drawImage(loadedImg, dX, dY, dW, dH);
+        ctx.restore();
+      } catch (err) {
+        ctx.save();
+        ctx.fillStyle = '#F8FAFC';
+        drawCanvasRoundRect(ctx, cardX + 16, cardY + 16, cardW - 32, cardH - 32, 24, true, false);
+        ctx.fillStyle = '#94A3B8';
+        ctx.font = '24px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Foto do Produto', W / 2, cardY + (cardH / 2));
+        ctx.restore();
+      }
+    }
+
+    // 5. Badge de Desconto (se houver desconto)
+    const desconto = (currentPinItem && currentPinItem.desconto) || 0;
+    if (desconto > 0) {
+      ctx.save();
+      const discText = `-${desconto}% OFF`;
+      ctx.font = '900 24px -apple-system, sans-serif';
+      const discW = ctx.measureText(discText).width + 36;
+      const discH = 44;
+      const discX = cardX + 24;
+      const discY = cardY + 24;
+
+      ctx.fillStyle = '#DC2626';
+      drawCanvasRoundRect(ctx, discX, discY, discW, discH, 22, true, false);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(discText, discX + (discW / 2), discY + (discH / 2));
+      ctx.restore();
+    }
+
+    // 6. Título do Pin (em 2 linhas)
+    ctx.save();
+    const tituloTexto = (pinInputTitulo && pinInputTitulo.value.trim()) || (currentPinItem && (currentPinItem.productName || currentPinItem.titulo)) || 'Achadinho Shopee';
+    ctx.font = 'bold 38px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = currentPinCanvasStyle === 'clean' ? '#0F172A' : '#FFFFFF';
+    drawCanvasWrapText(ctx, tituloTexto, W / 2, 1010, 840, 48, 2);
+    ctx.restore();
+
+    // 7. Avaliação e Vendas
+    ctx.save();
+    const nota = (currentPinItem && (currentPinItem.ratingStar || currentPinItem.nota)) || 4.9;
+    const notaFmt = Number(nota).toFixed(1);
+    const vendas = (currentPinItem && (currentPinItem.sales || currentPinItem.vendas)) || 0;
+    const ratingStr = `★ ${notaFmt}  •  ${vendas} vendidos`;
+
+    ctx.font = 'bold 26px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = currentPinCanvasStyle === 'clean' ? '#D97706' : '#FDE047';
+    ctx.fillText(ratingStr, W / 2, 1120);
+    ctx.restore();
+
+    // 8. Selo de Preço em Destaque (se ligado)
+    if (isPinShowPrice) {
+      ctx.save();
+      const precoVal = (currentPinItem && (currentPinItem.priceMin || currentPinItem.preco)) || 0;
+      const precoFmt = Number(precoVal).toFixed(2).replace('.', ',');
+      const priceText = `R$ ${precoFmt}`;
+
+      ctx.font = '900 56px -apple-system, sans-serif';
+      const pMetrics = ctx.measureText(priceText);
+      const tagW = Math.max(pMetrics.width + 110, 360);
+      const tagH = 92;
+      const tagX = (W - tagW) / 2;
+      const tagY = 1175;
+
+      if (currentPinCanvasStyle === 'clean') {
+        ctx.shadowColor = 'rgba(238, 77, 45, 0.35)';
+        ctx.shadowBlur = 24;
+        ctx.shadowOffsetY = 8;
+        ctx.fillStyle = '#EE4D2D';
+        drawCanvasRoundRect(ctx, tagX, tagY, tagW, tagH, 28, true, false);
+
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.font = 'bold 18px -apple-system, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText('POR APENAS', W / 2, tagY + 12);
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '900 50px -apple-system, sans-serif';
+        ctx.fillText(priceText, W / 2, tagY + 34);
+      } else {
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+        ctx.shadowBlur = 24;
+        ctx.shadowOffsetY = 8;
+        ctx.fillStyle = '#FFFFFF';
+        drawCanvasRoundRect(ctx, tagX, tagY, tagW, tagH, 28, true, false);
+
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
+        ctx.fillStyle = '#9A3412';
+        ctx.font = 'bold 18px -apple-system, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText('POR APENAS', W / 2, tagY + 12);
+
+        ctx.fillStyle = '#EE4D2D';
+        ctx.font = '900 50px -apple-system, sans-serif';
+        ctx.fillText(priceText, W / 2, tagY + 34);
+      }
+      ctx.restore();
+    }
+
+    // 9. Chamada para Ação no Rodapé (CTA)
+    ctx.save();
+    const ctaY = isPinShowPrice ? 1310 : 1230;
+    const ctaText = "👉 TOQUE NO PIN PARA GARANTIR NA SHOPEE";
+    ctx.font = 'bold 24px -apple-system, sans-serif';
+    const ctaMetrics = ctx.measureText(ctaText);
+    const ctaW = ctaMetrics.width + 56;
+    const ctaH = 54;
+    const ctaX = (W - ctaW) / 2;
+
+    if (currentPinCanvasStyle === 'clean') {
+      ctx.fillStyle = '#FFFFFF';
+      ctx.strokeStyle = '#CBD5E1';
+      ctx.lineWidth = 2;
+      drawCanvasRoundRect(ctx, ctaX, ctaY, ctaW, ctaH, 27, true, true);
+      ctx.fillStyle = '#0F172A';
+    } else {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.lineWidth = 2;
+      drawCanvasRoundRect(ctx, ctaX, ctaY, ctaW, ctaH, 27, true, true);
+      ctx.fillStyle = '#FFFFFF';
+    }
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(ctaText, W / 2, ctaY + (ctaH / 2));
+    ctx.restore();
+  }
+
+  function updatePinPreview() {
+    const activeUrl = getActivePinImageUrl();
+
+    if (isPinCanvasMode) {
+      if (pinPreviewSimpleWrap) pinPreviewSimpleWrap.classList.add('hidden');
+      if (pinPreviewCanvasWrap) pinPreviewCanvasWrap.classList.remove('hidden');
+      if (pinPreviewDim) pinPreviewDim.textContent = '1000×1500 (2:3)';
+      if (btnPinBaixarLabel) btnPinBaixarLabel.textContent = 'Baixar Arte (PNG)';
+
+      if (btnPinPublicarRapido) btnPinPublicarRapido.disabled = true;
+      if (pinQuickShareNotice) pinQuickShareNotice.classList.remove('hidden');
+
+      renderPinCanvas(activeUrl);
+    } else {
+      if (pinPreviewCanvasWrap) pinPreviewCanvasWrap.classList.add('hidden');
+      if (pinPreviewSimpleWrap) pinPreviewSimpleWrap.classList.remove('hidden');
+      if (pinPreviewDim) pinPreviewDim.textContent = 'Formato original';
+      if (btnPinBaixarLabel) btnPinBaixarLabel.textContent = 'Baixar Imagem';
+
+      if (pinPreviewImg && activeUrl) {
+        pinPreviewImg.src = activeUrl;
+      }
+
+      if (currentPinImgMode === 'file') {
+        if (btnPinPublicarRapido) btnPinPublicarRapido.disabled = true;
+        if (pinQuickShareNotice) pinQuickShareNotice.classList.remove('hidden');
+      } else {
+        if (btnPinPublicarRapido) btnPinPublicarRapido.disabled = false;
+        if (pinQuickShareNotice) pinQuickShareNotice.classList.add('hidden');
+      }
+    }
+  }
+
+  async function abrirModalPinterest(item) {
+    currentPinItem = item;
+    currentPinImgMode = 'shopee';
+    currentPinCustomUrl = '';
+    currentPinFileDataUrl = '';
+    isPinCanvasMode = false;
+    currentPinCanvasStyle = 'clean';
+    isPinShowPrice = true;
+
+    if (pinToggleCanvas) pinToggleCanvas.checked = false;
+    if (pinCanvasOptions) pinCanvasOptions.classList.add('hidden');
+    if (pinShowPriceToggle) pinShowPriceToggle.checked = true;
+    updatePinStyleButtons();
+
+    if (pinInputCustomUrl) pinInputCustomUrl.value = '';
+    if (pinFileSelectedName) pinFileSelectedName.textContent = 'Escolher imagem da galeria ou computador';
+    updatePinImageTabsUI();
+
+    const precoVal = item.priceMin || item.preco || 0;
+    const precoFmt = Number(precoVal).toFixed(2).replace('.', ',');
+    const notaVal = item.ratingStar || item.nota || 4.8;
+    const notaFmt = Number(notaVal).toFixed(1);
+    const vendasVal = item.sales || item.vendas || 0;
+    const titulo = item.productName || item.titulo || 'Achadinho Shopee';
+    const categoria = (item.categoria || '').trim();
+    const hashtagNicho = categoria ? ` #${categoria.toLowerCase().replace(/[^a-z0-9]/g, '')}` : '';
+
+    const titleTrunc = titulo.slice(0, 100);
+    if (pinInputTitulo) {
+      pinInputTitulo.value = titleTrunc;
+    }
+    if (pinCounterTitulo) {
+      pinCounterTitulo.textContent = `${titleTrunc.length}/100`;
+    }
+
+    const descPadrao = `🔥 Achadinho Shopee imperdível!\n💰 Por apenas R$ ${precoFmt}\n⭐ Avaliação ${notaFmt} | ${vendasVal} vendidos\n\n👉 Garanta com desconto no link:\n\n#shopee #achadinhos #ofertas #comprinhas${hashtagNicho}`;
+    if (pinInputDesc) {
+      pinInputDesc.value = descPadrao;
+    }
+
+    if (pinInputLink) {
+      pinInputLink.value = 'Gerando link rastreado...';
+    }
+    if (pinLinkStatus) {
+      pinLinkStatus.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-spin"></span> Gerando...';
+    }
+
+    if (modalPinterest) {
+      modalPinterest.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+    }
+
+    updatePinPreview();
+
+    const originUrl = item.offerLink || item.link_afiliado || item.productLink || '';
+    try {
+      const shortLink = await obterLinkRastreado(originUrl, 'pinterest');
+      if (pinInputLink) pinInputLink.value = shortLink;
+      if (pinLinkStatus) pinLinkStatus.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> subId: pinterest';
+    } catch (err) {
+      if (pinInputLink) pinInputLink.value = originUrl;
+      if (pinLinkStatus) pinLinkStatus.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> link padrão';
+    }
+  }
+
+  function fecharModalPinterest() {
+    if (modalPinterest) {
+      modalPinterest.classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+    }
+    currentPinItem = null;
+  }
+
+  function selectPinImageMode(mode) {
+    currentPinImgMode = mode;
+    updatePinImageTabsUI();
+    updatePinPreview();
+  }
+
+  function applyCustomPinUrl() {
+    const raw = (pinInputCustomUrl && pinInputCustomUrl.value) ? pinInputCustomUrl.value.trim() : '';
+    if (!raw) {
+      showToast('Digite uma URL válida de imagem.', true);
+      return;
+    }
+    currentPinCustomUrl = raw;
+    showToast('Imagem por URL aplicada!');
+    updatePinPreview();
+  }
+
+  function publicarRapidoPin() {
+    if (isPinCanvasMode || currentPinImgMode === 'file') {
+      showToast('Para arte vertical ou arquivo local, baixe o arquivo e abra o Criador do Pinterest.', true);
+      return;
+    }
+
+    const shortLink = (pinInputLink && pinInputLink.value.trim()) || (currentPinItem && (currentPinItem.offerLink || currentPinItem.link_afiliado || currentPinItem.productLink)) || '';
+    const desc = (pinInputDesc && pinInputDesc.value.trim()) || '';
+    const media = getActivePinImageUrl();
+
+    if (!shortLink || !media) {
+      showToast('Link ou imagem indisponíveis para publicação rápida.', true);
+      return;
+    }
+
+    const pinUrl = `https://pinterest.com/pin/create/button/?url=${encodeURIComponent(shortLink)}&media=${encodeURIComponent(media)}&description=${encodeURIComponent(desc)}`;
+    window.open(pinUrl, '_blank', 'noopener,noreferrer');
+  }
+
+  async function baixarImagemOuArtePin() {
+    if (!currentPinItem) return;
+    const safeTitle = (currentPinItem.productName || currentPinItem.titulo || 'produto')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '-')
+      .slice(0, 30);
+
+    if (isPinCanvasMode) {
+      try {
+        const dataUrl = pinCanvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = `pin-arte-${safeTitle}-1000x1500.png`;
+        link.href = dataUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('Arte vertical 1000×1500 baixada com sucesso!');
+      } catch (err) {
+        showToast('Erro ao exportar arte: ' + err.message, true);
+      }
+    } else {
+      const activeUrl = getActivePinImageUrl();
+      if (!activeUrl) return;
+
+      if (currentPinImgMode === 'file' || activeUrl.startsWith('data:')) {
+        const link = document.createElement('a');
+        link.download = `pin-foto-${safeTitle}.png`;
+        link.href = activeUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('Imagem baixada com sucesso!');
+      } else {
+        try {
+          const downloadUrl = getProxyImageUrl(activeUrl);
+          const res = await fetch(downloadUrl);
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.download = `pin-foto-${safeTitle}.jpg`;
+          link.href = blobUrl;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+          showToast('Imagem baixada com sucesso!');
+        } catch (err) {
+          window.open(activeUrl, '_blank');
+        }
+      }
+    }
+  }
+
+  function abrirCriadorPinsPinterest() {
+    window.open('https://www.pinterest.com/pin-creation-tool/', '_blank', 'noopener,noreferrer');
+    showToast('Criador do Pinterest aberto! Cole os campos copiados.');
+  }
+
+  function setupPinterestModalEvents() {
+    if (btnCloseModalPinterest) btnCloseModalPinterest.addEventListener('click', fecharModalPinterest);
+    if (modalPinterest) {
+      modalPinterest.addEventListener('click', (e) => {
+        if (e.target === modalPinterest) fecharModalPinterest();
+      });
+    }
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modalPinterest && !modalPinterest.classList.contains('hidden')) {
+        fecharModalPinterest();
+      }
+    });
+
+    if (btnCopyPinLink && pinInputLink) {
+      btnCopyPinLink.addEventListener('click', () => copyTextWithFeedback(btnCopyPinLink, pinInputLink.value, 'Link'));
+    }
+    if (btnCopyPinTitulo && pinInputTitulo) {
+      btnCopyPinTitulo.addEventListener('click', () => copyTextWithFeedback(btnCopyPinTitulo, pinInputTitulo.value, 'Título'));
+    }
+    if (btnCopyPinDesc && pinInputDesc) {
+      btnCopyPinDesc.addEventListener('click', () => copyTextWithFeedback(btnCopyPinDesc, pinInputDesc.value, 'Descrição'));
+    }
+
+    if (btnImgModeShopee) btnImgModeShopee.addEventListener('click', () => selectPinImageMode('shopee'));
+    if (btnImgModeUrl) btnImgModeUrl.addEventListener('click', () => selectPinImageMode('url'));
+    if (btnImgModeFile) btnImgModeFile.addEventListener('click', () => selectPinImageMode('file'));
+
+    if (btnApplyCustomUrl) btnApplyCustomUrl.addEventListener('click', applyCustomPinUrl);
+    if (pinInputCustomUrl) {
+      pinInputCustomUrl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') applyCustomPinUrl();
+      });
+    }
+
+    if (btnTriggerFilePick && pinInputFile) {
+      btnTriggerFilePick.addEventListener('click', () => pinInputFile.click());
+    }
+    if (pinInputFile) {
+      pinInputFile.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        if (pinFileSelectedName) pinFileSelectedName.textContent = file.name;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          currentPinFileDataUrl = evt.target.result;
+          updatePinPreview();
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    if (pinToggleCanvas) {
+      pinToggleCanvas.addEventListener('change', () => {
+        isPinCanvasMode = pinToggleCanvas.checked;
+        if (pinCanvasOptions) {
+          if (isPinCanvasMode) pinCanvasOptions.classList.remove('hidden');
+          else pinCanvasOptions.classList.add('hidden');
+        }
+        updatePinPreview();
+      });
+    }
+
+    if (pinStyleClean) {
+      pinStyleClean.addEventListener('click', () => {
+        currentPinCanvasStyle = 'clean';
+        updatePinStyleButtons();
+        if (isPinCanvasMode) updatePinPreview();
+      });
+    }
+    if (pinStyleOrange) {
+      pinStyleOrange.addEventListener('click', () => {
+        currentPinCanvasStyle = 'orange';
+        updatePinStyleButtons();
+        if (isPinCanvasMode) updatePinPreview();
+      });
+    }
+
+    if (pinShowPriceToggle) {
+      pinShowPriceToggle.addEventListener('change', () => {
+        isPinShowPrice = pinShowPriceToggle.checked;
+        if (isPinCanvasMode) updatePinPreview();
+      });
+    }
+
+    if (pinInputTitulo) {
+      pinInputTitulo.addEventListener('input', () => {
+        const len = pinInputTitulo.value.length;
+        if (pinCounterTitulo) pinCounterTitulo.textContent = `${len}/100`;
+        if (isPinCanvasMode) renderPinCanvas(getActivePinImageUrl());
+      });
+    }
+
+    if (btnPinPublicarRapido) btnPinPublicarRapido.addEventListener('click', publicarRapidoPin);
+    if (btnPinBaixarArte) btnPinBaixarArte.addEventListener('click', baixarImagemOuArtePin);
+    if (btnPinAbrirCriador) btnPinAbrirCriador.addEventListener('click', abrirCriadorPinsPinterest);
   }
 
   if (document.readyState === 'loading') {

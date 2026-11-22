@@ -440,6 +440,314 @@
     </div>
   </div>
 
+  <!-- ================= MODAL: CRIAR NOVO PIN (PINTEREST) ================= -->
+  <div id="modal-pinterest" class="hidden fixed inset-0 z-50 bg-slate-950 sm:bg-slate-950/80 sm:backdrop-blur-md flex flex-col sm:items-center sm:justify-center sm:p-4">
+    <div class="w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-2xl bg-slate-900 sm:border sm:border-slate-800 sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+      
+      <!-- Topo / Header do Modal -->
+      <div class="shrink-0 px-4 py-3 sm:px-6 sm:py-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-red-600/20 text-red-500 flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
+              <path d="M12 0a12 12 0 0 0-4.37 23.17c-.07-.98-.13-2.48.03-3.55.14-.98.92-3.9 1.13-4.78-.11-.22-.38-.97-.38-2.26 0-2.12 1.23-3.7 2.76-3.7 1.3 0 1.93.98 1.93 2.15 0 1.31-.83 3.27-1.27 5.09-.36 1.52.77 2.76 2.27 2.76 2.72 0 4.82-2.87 4.82-7.01 0-3.67-2.64-6.23-6.4-6.23-4.36 0-6.91 3.27-6.91 6.64 0 1.32.51 2.73 1.14 3.5.13.15.14.28.1.52-.11.45-.35 1.43-.4 1.62-.06.27-.22.33-.5.2-1.85-.86-3-3.56-3-5.73 0-4.67 3.39-8.96 9.78-8.96 5.23 0 9.3 3.73 9.3 8.71 0 5.2-3.28 9.39-7.83 9.39-1.53 0-2.97-.8-3.46-1.74l-.94 3.59c-.34 1.32-1.26 2.97-1.88 3.98A12 12 0 1 0 12 0z"/>
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-sm sm:text-base font-extrabold text-white flex items-center gap-1.5">
+              Criar Novo Pin
+              <span class="text-[10px] font-semibold bg-red-600/20 text-red-400 px-2 py-0.5 rounded-full">Shopee</span>
+            </h2>
+            <p class="text-[11px] text-slate-400">Personalize imagem, arte 2:3 e copie os dados para o Pin</p>
+          </div>
+        </div>
+
+        <button 
+          type="button" 
+          id="btn-close-modal-pinterest" 
+          class="min-h-[42px] min-w-[42px] p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center cursor-pointer"
+          aria-label="Fechar Modal"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Corpo com Scroll Interno -->
+      <div class="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-4">
+        
+        <!-- Link de Afiliado Rastreado -->
+        <div class="bg-slate-950/70 border border-slate-800 rounded-2xl p-3 sm:p-3.5 space-y-2">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-bold text-slate-300 flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+              </svg>
+              Link de Afiliado Rastreado
+            </span>
+            <span id="pin-link-status" class="text-[10px] text-emerald-400 font-medium flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              subId: pinterest
+            </span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <input 
+              type="text" 
+              id="pin-input-link" 
+              class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-red-500 transition-colors"
+              placeholder="https://s.shopee.com.br/..."
+            />
+            <button 
+              type="button" 
+              id="btn-copy-pin-link" 
+              class="min-h-[42px] px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+              </svg>
+              <span class="btn-copy-text">Copiar</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Seção: Escolha e Personalização da Imagem -->
+        <div class="space-y-2.5">
+          <label class="block text-xs font-bold text-slate-300">Escolha da Imagem:</label>
+          
+          <div class="grid grid-cols-3 gap-2">
+            <button 
+              type="button" 
+              id="btn-img-mode-shopee" 
+              class="pin-img-tab min-h-[42px] px-2 py-2 rounded-xl text-xs font-bold border transition-all flex flex-col sm:flex-row items-center justify-center gap-1 cursor-pointer bg-red-600/20 border-red-500 text-white"
+            >
+              <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+              <span>Foto Oficial</span>
+            </button>
+
+            <button 
+              type="button" 
+              id="btn-img-mode-url" 
+              class="pin-img-tab min-h-[42px] px-2 py-2 rounded-xl text-xs font-bold border transition-all flex flex-col sm:flex-row items-center justify-center gap-1 cursor-pointer bg-slate-800 border-slate-700 text-slate-300 hover:text-white"
+            >
+              <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+              </svg>
+              <span>Outra URL</span>
+            </button>
+
+            <button 
+              type="button" 
+              id="btn-img-mode-file" 
+              class="pin-img-tab min-h-[42px] px-2 py-2 rounded-xl text-xs font-bold border transition-all flex flex-col sm:flex-row items-center justify-center gap-1 cursor-pointer bg-slate-800 border-slate-700 text-slate-300 hover:text-white"
+            >
+              <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+              </svg>
+              <span>Subir Foto</span>
+            </button>
+          </div>
+
+          <!-- Input para Modo URL -->
+          <div id="pin-box-img-url" class="hidden flex items-center gap-2 pt-1">
+            <input 
+              type="url" 
+              id="pin-input-custom-url" 
+              placeholder="Cole a URL da imagem (https://...)" 
+              class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-red-500"
+            />
+            <button 
+              type="button" 
+              id="btn-apply-custom-url" 
+              class="min-h-[42px] px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs shrink-0 cursor-pointer"
+            >
+              Aplicar
+            </button>
+          </div>
+
+          <!-- Input para Modo Arquivo Local -->
+          <div id="pin-box-img-file" class="hidden pt-1">
+            <input type="file" id="pin-input-file" accept="image/*" class="hidden" />
+            <button 
+              type="button" 
+              id="btn-trigger-file-pick" 
+              class="w-full min-h-[42px] px-4 py-2.5 rounded-xl border border-dashed border-slate-700 hover:border-red-500/50 bg-slate-950 text-slate-300 hover:text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            >
+              <svg class="w-4 h-4 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+              <span id="pin-file-selected-name" class="truncate max-w-xs">Escolher imagem da galeria ou computador</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Seção: Toggle Modo Arte Vertical 2:3 (Canvas 1000x1500) -->
+        <div class="bg-slate-950/70 border border-slate-800 rounded-2xl p-3.5 space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-white">Gerar arte vertical para Pinterest (1000×1500)</span>
+              <span class="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">2:3</span>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+              <input type="checkbox" id="pin-toggle-canvas" class="sr-only peer" />
+              <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+            </label>
+          </div>
+
+          <!-- Opções da Arte Vertical (quando toggle ligado) -->
+          <div id="pin-canvas-options" class="hidden pt-2 border-t border-slate-800/80 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div class="flex items-center gap-1.5">
+                <span class="text-slate-400">Estilo:</span>
+                <div class="inline-flex rounded-lg p-0.5 bg-slate-900 border border-slate-800">
+                  <button type="button" id="pin-style-clean" class="px-2.5 py-1 rounded-md text-[11px] font-bold transition-all bg-slate-700 text-white cursor-pointer">
+                    Claro Clean
+                  </button>
+                  <button type="button" id="pin-style-orange" class="px-2.5 py-1 rounded-md text-[11px] font-bold transition-all text-slate-400 hover:text-white cursor-pointer">
+                    Laranja Shopee
+                  </button>
+                </div>
+              </div>
+
+              <label class="flex items-center gap-1.5 cursor-pointer select-none">
+                <input type="checkbox" id="pin-show-price-toggle" checked class="w-4 h-4 text-red-600 rounded bg-slate-900 border-slate-700 focus:ring-0 cursor-pointer" />
+                <span class="text-slate-300 text-[11px] font-bold">Exibir preço na arte</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Preview da Imagem / Arte Vertical -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between text-xs text-slate-400">
+            <span class="font-bold">Preview do Pin:</span>
+            <span id="pin-preview-dim" class="text-[10px] text-slate-500">Formato original</span>
+          </div>
+
+          <div class="relative bg-slate-950 border border-slate-800 rounded-2xl p-3 flex items-center justify-center min-h-[200px]">
+            <!-- Preview Simples (Imagem Original/URL/Local) -->
+            <div id="pin-preview-simple-wrap" class="max-w-[190px] sm:max-w-[220px] aspect-square rounded-xl overflow-hidden shadow-lg border border-slate-800 bg-slate-900 flex items-center justify-center">
+              <img id="pin-preview-img" src="" alt="Preview Pin" class="w-full h-full object-cover" />
+            </div>
+
+            <!-- Preview Canvas 2:3 (Arte Vertical) -->
+            <div id="pin-preview-canvas-wrap" class="hidden aspect-[2/3] w-[190px] sm:w-[220px] rounded-xl overflow-hidden shadow-2xl border border-slate-700 relative bg-slate-900">
+              <canvas id="pin-canvas" width="1000" height="1500" class="w-full h-full object-cover"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Campos Editáveis: Título do Pin -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between text-xs">
+            <label for="pin-input-titulo" class="font-bold text-slate-300">Título do Pin:</label>
+            <span id="pin-counter-titulo" class="text-[10px] text-slate-500">0/100</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <input 
+              type="text" 
+              id="pin-input-titulo" 
+              maxlength="100" 
+              class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 outline-none focus:border-red-500 transition-colors"
+              placeholder="Título chamativo para o Pinterest..."
+            />
+            <button 
+              type="button" 
+              id="btn-copy-pin-titulo" 
+              class="min-h-[42px] px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs shrink-0 flex items-center gap-1.5 cursor-pointer transition-colors"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+              </svg>
+              <span class="btn-copy-text">Copiar</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Campos Editáveis: Descrição + Hashtags -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between text-xs">
+            <label for="pin-input-desc" class="font-bold text-slate-300">Descrição + Hashtags:</label>
+          </div>
+          <div class="flex items-start gap-2">
+            <textarea 
+              id="pin-input-desc" 
+              rows="3" 
+              class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-slate-100 outline-none focus:border-red-500 transition-colors resize-none"
+              placeholder="Descrição do produto com hashtags..."
+            ></textarea>
+            <button 
+              type="button" 
+              id="btn-copy-pin-desc" 
+              class="min-h-[42px] px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs shrink-0 flex items-center gap-1.5 cursor-pointer transition-colors"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+              </svg>
+              <span class="btn-copy-text">Copiar</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Rodapé / Ações do Modal -->
+      <div class="shrink-0 p-3 sm:p-4 bg-slate-900 border-t border-slate-800 space-y-2">
+        
+        <!-- Alerta discreto quando Publicar Rápido não está disponível -->
+        <div id="pin-quick-share-notice" class="hidden text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-1.5 flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span>Para arte gerada ou imagem local, baixe o arquivo e use o Criador de Pins.</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          
+          <!-- 1. Publicar Rápido (1 clique) -->
+          <button 
+            type="button" 
+            id="btn-pin-publicar-rapido" 
+            class="min-h-[42px] px-3 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-extrabold text-xs shadow-lg shadow-red-600/30 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+          >
+            <svg class="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+              <path d="M12 0a12 12 0 0 0-4.37 23.17c-.07-.98-.13-2.48.03-3.55.14-.98.92-3.9 1.13-4.78-.11-.22-.38-.97-.38-2.26 0-2.12 1.23-3.7 2.76-3.7 1.3 0 1.93.98 1.93 2.15 0 1.31-.83 3.27-1.27 5.09-.36 1.52.77 2.76 2.27 2.76 2.72 0 4.82-2.87 4.82-7.01 0-3.67-2.64-6.23-6.4-6.23-4.36 0-6.91 3.27-6.91 6.64 0 1.32.51 2.73 1.14 3.5.13.15.14.28.1.52-.11.45-.35 1.43-.4 1.62-.06.27-.22.33-.5.2-1.85-.86-3-3.56-3-5.73 0-4.67 3.39-8.96 9.78-8.96 5.23 0 9.3 3.73 9.3 8.71 0 5.2-3.28 9.39-7.83 9.39-1.53 0-2.97-.8-3.46-1.74l-.94 3.59c-.34 1.32-1.26 2.97-1.88 3.98A12 12 0 1 0 12 0z"/>
+            </svg>
+            <span>Publicar Rápido</span>
+          </button>
+
+          <!-- 2. Baixar Imagem / Arte (PNG) -->
+          <button 
+            type="button" 
+            id="btn-pin-baixar-arte" 
+            class="min-h-[42px] px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+          >
+            <svg class="w-4 h-4 shrink-0 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            <span id="btn-pin-baixar-label">Baixar Imagem</span>
+          </button>
+
+          <!-- 3. Abrir Criador de Pins -->
+          <button 
+            type="button" 
+            id="btn-pin-abrir-criador" 
+            class="min-h-[42px] px-3 py-2.5 rounded-xl border border-slate-700 hover:border-slate-600 bg-slate-800/60 hover:bg-slate-800 text-slate-300 hover:text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+          >
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+            </svg>
+            <span>Abrir no Pinterest</span>
+          </button>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <!-- Toast de Notificações -->
   <div id="toast" class="fixed top-4 right-4 z-50 transform -translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
     <div id="toast-body" class="px-4 py-3 rounded-2xl shadow-2xl text-xs sm:text-sm font-bold flex items-center gap-2 bg-slate-800 text-white border border-slate-700">
