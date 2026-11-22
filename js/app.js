@@ -1,5 +1,6 @@
 /**
  * Mimi Ofertas - App Logic (Filtros, Busca Instantânea, Ordenação e Renderização)
+ * Compatível com a lista oficial de 14 categorias da Shopee + normalização flexível
  */
 
 (function () {
@@ -14,14 +15,50 @@
   const sortSelect = document.getElementById('sort-select');
   const categoryChips = document.querySelectorAll('.category-chip');
   const resultsCounter = document.getElementById('results-counter');
+  const btnVerTodasOfertas = document.getElementById('btn-ver-todas-ofertas');
+
+  // Scroll horizontal com setas no desktop
+  const catScrollLeft = document.getElementById('cat-scroll-left');
+  const catScrollRight = document.getElementById('cat-scroll-right');
+  const categoriesScrollContainer = document.getElementById('categories-scroll-container');
+
+  // Normalização de texto para comparações robustas (sem acentos e minúsculo)
+  function normalizeText(str) {
+    if (!str) return '';
+    return str
+      .toString()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+  }
+
+  // Mapeamento de sinonímias entre as chaves curtas e os nomes por extenso
+  const CATEGORY_MAP = {
+    'todas': ['todas'],
+    'casa': ['casa', 'casa e decoracao', 'decoracao', 'decoracao casa'],
+    'cozinha': ['cozinha', 'cozinha e utilidades', 'utilidades', 'cozinha pratica'],
+    'beleza': ['beleza', 'beleza e cuidados', 'skincare', 'beleza & skincare', 'cuidados'],
+    'celulares': ['celulares', 'celulares e acessorios', 'acessorios celular', 'celular'],
+    'eletronicos': ['eletronicos', 'audio e eletronicos', 'eletronicos & smart', 'audio'],
+    'moda': ['moda', 'moda feminina', 'roupas'],
+    'bolsas': ['bolsas', 'bolsas e acessorios', 'malas'],
+    'ferramentas': ['ferramentas', 'ferramentas e construcao', 'construcao'],
+    'esporte': ['esporte', 'esporte e lazer', 'lazer', 'fitness'],
+    'saude': ['saude', 'saude e bem-estar', 'bem-estar'],
+    'pet': ['pet', 'pet shop', 'animais'],
+    'papelaria': ['papelaria', 'papelaria e escritorio', 'escritorio'],
+    'automotivo': ['automotivo', 'acessorios veiculares', 'carro'],
+    'bebes': ['bebes', 'bebes e brinquedos', 'brinquedos', 'infantil']
+  };
 
   // Inicialização
   async function init() {
     const urlParams = new URLSearchParams(window.location.search);
     const catParam = urlParams.get('cat');
     if (catParam) {
-      currentCategory = catParam;
-      updateActiveCategoryChip(catParam);
+      currentCategory = normalizeText(catParam);
+      updateActiveCategoryChip(currentCategory);
     }
 
     await loadProducts();
@@ -55,7 +92,7 @@
   function setupEventListeners() {
     if (searchInput) {
       searchInput.addEventListener('input', (e) => {
-        searchQuery = e.target.value.trim().toLowerCase();
+        searchQuery = normalizeText(e.target.value);
         applyFiltersAndRender();
       });
     }
@@ -73,13 +110,37 @@
         currentCategory = cat;
         updateActiveCategoryChip(cat);
         applyFiltersAndRender();
+        // Leva a visualização suavemente para o início do chip selecionado se estiver cortado
+        chip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
       });
     });
+
+    if (btnVerTodasOfertas) {
+      btnVerTodasOfertas.addEventListener('click', () => {
+        currentCategory = 'todas';
+        updateActiveCategoryChip('todas');
+        applyFiltersAndRender();
+      });
+    }
+
+    // Navegação horizontal suave pelas setas do Desktop
+    if (catScrollLeft && categoriesScrollContainer) {
+      catScrollLeft.addEventListener('click', () => {
+        categoriesScrollContainer.scrollBy({ left: -220, behavior: 'smooth' });
+      });
+    }
+
+    if (catScrollRight && categoriesScrollContainer) {
+      catScrollRight.addEventListener('click', () => {
+        categoriesScrollContainer.scrollBy({ left: 220, behavior: 'smooth' });
+      });
+    }
   }
 
-  function updateActiveCategoryChip(cat) {
+  function updateActiveCategoryChip(targetCat) {
     categoryChips.forEach((btn) => {
-      if (btn.dataset.category === cat) {
+      const btnCat = btn.dataset.category;
+      if (btnCat === targetCat) {
         btn.classList.remove('bg-white', 'text-slate-700', 'border-slate-200');
         btn.classList.add('bg-orange-600', 'text-white', 'border-orange-600', 'shadow-xs');
       } else {
@@ -89,14 +150,34 @@
     });
   }
 
+  // Verifica compatibilidade de categoria com normalização
+  function matchesCategory(prodCategory, selectedKey) {
+    if (selectedKey === 'todas') return true;
+    const prodCatNorm = normalizeText(prodCategory);
+    const keyNorm = normalizeText(selectedKey);
+
+    // Se bater exatamente
+    if (prodCatNorm === keyNorm) return true;
+
+    // Se estiver no mapa de categorias
+    const validVariants = CATEGORY_MAP[keyNorm] || [keyNorm];
+    return validVariants.some(variant => {
+      const vNorm = normalizeText(variant);
+      return prodCatNorm.includes(vNorm) || vNorm.includes(prodCatNorm);
+    });
+  }
+
   // Filtragem e Ordenação
   function applyFiltersAndRender() {
     let filtered = allProducts.filter((product) => {
-      const matchCat = currentCategory === 'todas' || product.categoria === currentCategory;
+      const matchCat = matchesCategory(product.categoria, currentCategory);
+      
+      const titleNorm = normalizeText(product.titulo);
+      const catNorm = normalizeText(product.categoria);
       const matchSearch =
         !searchQuery ||
-        product.titulo.toLowerCase().includes(searchQuery) ||
-        product.categoria.toLowerCase().includes(searchQuery);
+        titleNorm.includes(searchQuery) ||
+        catNorm.includes(searchQuery);
 
       return matchCat && matchSearch;
     });
@@ -127,7 +208,7 @@
     return vendas;
   }
 
-  // Renderização dos Cards (Otimizada para 2 colunas no mobile 360px)
+  // Renderização dos Cards (2 colunas no mobile 360px)
   function renderProducts(products) {
     if (!productGrid) return;
 
@@ -195,7 +276,7 @@
                 <span class="text-base sm:text-xl font-black text-orange-600 tracking-tight leading-tight">${formatMoney(item.preco)}</span>
               </div>
 
-              <!-- CTA de Afiliado Touch-friendly (mínimo 40px no mobile) -->
+              <!-- CTA de Afiliado Touch-friendly -->
               <a 
                 href="${item.link_afiliado}" 
                 target="_blank" 

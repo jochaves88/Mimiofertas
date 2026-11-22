@@ -119,37 +119,94 @@
     </div>
   </section>
 
-  <!-- Filtros & Controles de Vitrine (Exatamente colada no topo ao rolar, z-40 e sem frestas) -->
-  <section id="ofertas" class="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm py-2.5 sm:py-3">
+  <!-- Filtros & Controles de Vitrine (Exatamente colada no topo ao rolar, z-40 e sempre 1 linha com setas no desktop) -->
+  <section id="ofertas" class="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm py-2 sm:py-2.5">
     <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+      <div class="flex flex-col gap-2">
         
-        <!-- Categorias (Linha única com scroll horizontal suave no mobile) -->
-        <div class="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 no-scrollbar touch-pan-x">
-          <button data-category="todas" class="category-chip px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap border bg-orange-600 text-white border-orange-600 shadow-xs cursor-pointer shrink-0">
-            Todas
+        <!-- Linha das 15 Categorias com Scroll Suave e Setas de Navegação no Desktop -->
+        <div class="relative flex items-center w-full">
+          <!-- Seta Esquerda (Desktop) -->
+          <button 
+            type="button" 
+            id="cat-scroll-left" 
+            class="hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:text-orange-600 hover:border-orange-300 shadow-xs mr-1 shrink-0 cursor-pointer transition-colors"
+            aria-label="Rolar categorias para a esquerda"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
           </button>
-          <button data-category="casa" class="category-chip px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap border bg-white text-slate-700 border-slate-200 hover:border-orange-300 cursor-pointer shrink-0">
-            Casa & Decoração
-          </button>
-          <button data-category="cozinha" class="category-chip px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap border bg-white text-slate-700 border-slate-200 hover:border-orange-300 cursor-pointer shrink-0">
-            Cozinha Prática
-          </button>
-          <button data-category="beleza" class="category-chip px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap border bg-white text-slate-700 border-slate-200 hover:border-orange-300 cursor-pointer shrink-0">
-            Beleza & Skincare
-          </button>
-          <button data-category="eletronicos" class="category-chip px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap border bg-white text-slate-700 border-slate-200 hover:border-orange-300 cursor-pointer shrink-0">
-            Eletrônicos & Smart
+
+          <!-- Container de Categorias em Linha Única -->
+          <div id="categories-scroll-container" class="flex items-center gap-1.5 overflow-x-auto w-full py-1 no-scrollbar touch-pan-x scroll-smooth">
+            <button data-category="todas" class="category-chip px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap border bg-orange-600 text-white border-orange-600 shadow-xs cursor-pointer shrink-0">
+              Todas
+            </button>
+            <button data-category="casa" class="category-chip px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap border bg-white text-slate-700 border-slate-200 hover:border-orange-300 cursor-pointer shrink-0">
+              Casa e Decoração
+            </button>
+            <button data-category="cozinha" class="category-chip px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap border bg-white text-slate-700 border-slate-200 hover:border-orange-300 cursor-pointer shrink-0">
+              Cozinha e Utilidades
+            </button>
+            <button data-category="beleza" class="category-chip px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap border bg-white text-slate-700 border-slate-200 hover:border-orange-300 cursor-pointer shrink-0">
+              Beleza e Cuidados
+            </button>
+            <button data-category="celulares" class="category-chip px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap border bg-white text-slate-700 border-slate-200 hover:border-orange-300 cursor-pointer shrink-0">
+              Celulares e Acessórios
+            </button>
+            <button data-category="eletronicos" class="category-chip px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap border bg-white text-slate-700 border-slate-200 hover:border-orange-300 cursor-pointer shrink-0">
+              Áudio e Eletrônicos
+            </button>
+            <button data-category="moda" class="category-chip px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap border bg-white text-slate-700 border-slate-200 hover:border-orange-300 cursor-pointer shrink-0">
+              Moda Feminina
+            </button>
+            <button data-category="bolsas" class="category-chip px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap border bg-white text-slate-700 border-slate-200 hover:border-orange-300 cursor-pointer shrink-0">
+              Bolsas e Acessórios
+            </button>
+            <button data-category="ferramentas" class="category-chip px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap border bg-white text-slate-700 border-slate-200 hover:border-orange-300 cursor-pointer shrink-0">
+              Ferramentas e Construção
+            </button>
+            <button data-category="esporte" class="category-chip px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap border bg-white text-slate-700 border-slate-200 hover:border-orange-300 cursor-pointer shrink-0">
+              Esporte e Lazer
+            </button>
+            <button data-category="saude" class="category-chip px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap border bg-white text-slate-700 border-slate-200 hover:border-orange-300 cursor-pointer shrink-0">
+              Saúde e Bem-Estar
+            </button>
+            <button data-category="pet" class="category-chip px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap border bg-white text-slate-700 border-slate-200 hover:border-orange-300 cursor-pointer shrink-0">
+              Pet Shop
+            </button>
+            <button data-category="papelaria" class="category-chip px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap border bg-white text-slate-700 border-slate-200 hover:border-orange-300 cursor-pointer shrink-0">
+              Papelaria e Escritório
+            </button>
+            <button data-category="automotivo" class="category-chip px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap border bg-white text-slate-700 border-slate-200 hover:border-orange-300 cursor-pointer shrink-0">
+              Automotivo
+            </button>
+            <button data-category="bebes" class="category-chip px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap border bg-white text-slate-700 border-slate-200 hover:border-orange-300 cursor-pointer shrink-0">
+              Bebês e Brinquedos
+            </button>
+          </div>
+
+          <!-- Seta Direita (Desktop) -->
+          <button 
+            type="button" 
+            id="cat-scroll-right" 
+            class="hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:text-orange-600 hover:border-orange-300 shadow-xs ml-1 shrink-0 cursor-pointer transition-colors"
+            aria-label="Rolar categorias para a direita"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
           </button>
         </div>
 
-        <!-- Ordenação & Contador (Empilhados de forma limpa no mobile) -->
-        <div class="flex items-center justify-between w-full md:w-auto gap-2 pt-1 md:pt-0 border-t border-slate-100 md:border-t-0">
+        <!-- Linha de Apoio: Contador de Resultados e Ordenação -->
+        <div class="flex items-center justify-between w-full pt-1.5 border-t border-slate-100 text-xs">
           <span id="results-counter" class="text-[11px] sm:text-xs font-semibold text-slate-500 whitespace-nowrap">Carregando...</span>
           
           <div class="flex items-center gap-1.5 shrink-0">
             <label for="sort-select" class="text-[11px] sm:text-xs font-bold text-slate-600 whitespace-nowrap">Ordenar:</label>
-            <select id="sort-select" class="bg-slate-50 border border-slate-200 text-slate-700 text-[11px] sm:text-xs rounded-lg focus:ring-orange-500 focus:border-orange-500 py-1.5 px-2 cursor-pointer outline-none max-w-[150px] sm:max-w-none truncate">
+            <select id="sort-select" class="bg-slate-50 border border-slate-200 text-slate-700 text-[11px] sm:text-xs rounded-lg focus:ring-orange-500 focus:border-orange-500 py-1 px-2 cursor-pointer outline-none max-w-[150px] sm:max-w-none truncate">
               <option value="relevancia">Mais Relevantes</option>
               <option value="preco-asc">Menor Preço</option>
               <option value="preco-desc">Maior Preço</option>
@@ -178,8 +235,20 @@
         <svg class="w-12 h-12 text-slate-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
-        <h3 class="text-base font-bold text-slate-800">Nenhum achadinho encontrado</h3>
-        <p class="text-xs text-slate-500 mt-1">Tente buscar por termos mais simples ou trocar a categoria.</p>
+        <h3 class="text-base font-bold text-slate-800">Nenhum achadinho encontrado nesta categoria</h3>
+        <p class="text-xs text-slate-500 mt-1 max-w-sm mx-auto">Novas ofertas são mineradas e adicionadas diariamente pela nossa curadoria.</p>
+        <div class="mt-4">
+          <button 
+            type="button" 
+            id="btn-ver-todas-ofertas" 
+            class="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs transition-colors shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+          >
+            <span>Ver todas as ofertas</span>
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <!-- Banner de Segurança & Confiança -->

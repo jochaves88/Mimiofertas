@@ -3,6 +3,23 @@
  */
 
 (function () {
+  const CATEGORIAS_MENU = [
+    { key: 'casa', label: 'Casa e Decoração' },
+    { key: 'cozinha', label: 'Cozinha e Utilidades' },
+    { key: 'beleza', label: 'Beleza e Cuidados' },
+    { key: 'celulares', label: 'Celulares e Acessórios' },
+    { key: 'eletronicos', label: 'Áudio e Eletrônicos' },
+    { key: 'moda', label: 'Moda Feminina' },
+    { key: 'bolsas', label: 'Bolsas e Acessórios' },
+    { key: 'ferramentas', label: 'Ferramentas e Construção' },
+    { key: 'esporte', label: 'Esporte e Lazer' },
+    { key: 'saude', label: 'Saúde e Bem-Estar' },
+    { key: 'pet', label: 'Pet Shop' },
+    { key: 'papelaria', label: 'Papelaria e Escritório' },
+    { key: 'automotivo', label: 'Automotivo' },
+    { key: 'bebes', label: 'Bebês e Brinquedos' }
+  ];
+
   function renderHeader() {
     const headerContainer = document.getElementById('main-header');
     if (!headerContainer) return;
@@ -49,6 +66,24 @@
             <div class="hidden md:flex items-center gap-5">
               <a href="index.html" class="font-medium text-xs lg:text-sm transition-colors ${isHome ? 'text-orange-600 font-bold' : 'text-slate-600 hover:text-orange-600'}">Início</a>
               <a href="index.html#ofertas" class="font-medium text-xs lg:text-sm text-slate-600 hover:text-orange-600 transition-colors">Ofertas</a>
+              
+              <!-- Dropdown Compacto de Categorias no Header (Desktop) -->
+              <div class="relative group">
+                <button type="button" class="font-medium text-xs lg:text-sm text-slate-600 group-hover:text-orange-600 transition-colors flex items-center gap-1 cursor-pointer py-2">
+                  <span>Categorias</span>
+                  <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-orange-600 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                  </svg>
+                </button>
+                <div class="hidden group-hover:grid grid-cols-2 gap-1 absolute top-full left-0 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl p-3 z-50">
+                  ${CATEGORIAS_MENU.map(c => `
+                    <a href="index.html?cat=${c.key}#ofertas" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:text-orange-600 hover:bg-orange-50 truncate transition-colors">
+                      ${c.label}
+                    </a>
+                  `).join('')}
+                </div>
+              </div>
+
               <a href="sobre.html" class="font-medium text-xs lg:text-sm transition-colors ${isSobre ? 'text-orange-600 font-bold' : 'text-slate-600 hover:text-orange-600'}">Sobre Nós</a>
               <a href="termos.html" class="font-medium text-xs lg:text-sm transition-colors ${isTermos ? 'text-orange-600 font-bold' : 'text-slate-600 hover:text-orange-600'}">Termos</a>
               <a href="privacidade.html" class="font-medium text-xs lg:text-sm transition-colors ${isPrivacidade ? 'text-orange-600 font-bold' : 'text-slate-600 hover:text-orange-600'}">Privacidade</a>
@@ -162,14 +197,15 @@
               </div>
             </div>
 
-            <!-- Coluna 2: Categorias Rápidas -->
+            <!-- Coluna 2: Categorias Rápidas Oficiais -->
             <div>
-              <h4 class="text-xs sm:text-sm font-bold text-white uppercase tracking-wider mb-3">Categorias</h4>
+              <h4 class="text-xs sm:text-sm font-bold text-white uppercase tracking-wider mb-3">Principais Nichos</h4>
               <ul class="space-y-1.5 text-xs">
-                <li><a href="index.html?cat=casa" class="hover:text-orange-400 transition-colors">Casa & Decoração</a></li>
-                <li><a href="index.html?cat=cozinha" class="hover:text-orange-400 transition-colors">Cozinha Prática</a></li>
-                <li><a href="index.html?cat=beleza" class="hover:text-orange-400 transition-colors">Beleza & Cuidados</a></li>
-                <li><a href="index.html?cat=eletronicos" class="hover:text-orange-400 transition-colors">Eletrônicos & Smart</a></li>
+                <li><a href="index.html?cat=casa#ofertas" class="hover:text-orange-400 transition-colors">Casa e Decoração</a></li>
+                <li><a href="index.html?cat=cozinha#ofertas" class="hover:text-orange-400 transition-colors">Cozinha e Utilidades</a></li>
+                <li><a href="index.html?cat=beleza#ofertas" class="hover:text-orange-400 transition-colors">Beleza e Cuidados</a></li>
+                <li><a href="index.html?cat=eletronicos#ofertas" class="hover:text-orange-400 transition-colors">Áudio e Eletrônicos</a></li>
+                <li><a href="index.html?cat=celulares#ofertas" class="hover:text-orange-400 transition-colors">Celulares e Acessórios</a></li>
               </ul>
             </div>
 
