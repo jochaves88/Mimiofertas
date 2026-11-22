@@ -1,12 +1,17 @@
 /**
  * Mimi Ofertas - Painel Gerenciador e Minerador Shopee
  * Lógica 100% Mobile-First com suporte a Categorias Shopee Oficiais,
- * Exclusão em Lote e Excluir Tudo em Commit Único na Vercel / GitHub
+ * Exclusão em Lote, Excluir Tudo e Compartilhamento com Link Rastreado (WhatsApp e Pinterest)
  */
 
 (function () {
   const API_MINERAR = '/api/minerar';
   const API_PUBLICAR = '/api/publicar';
+  const API_GERAR_LINK = '/api/gerar-link';
+
+  // Cache em memória de links rastreados para evitar chamadas redundantes
+  // chave: `${originUrl}_${plataforma}` -> shortLink
+  const linkCache = new Map();
 
   // Lista oficial das 14 principais categorias da Shopee Brasil com mapeamento
   const SHOPEE_CATEGORIAS_OFICIAIS = [
@@ -141,6 +146,77 @@
     return data;
   }
 
+  // ================= GERADOR DE LINK RASTREADO SHOPEE =================
+  async function obterLinkRastreado(originUrl, plataforma) {
+    if (!originUrl) return '';
+    const cacheKey = `${originUrl}_${plataforma}`;
+    if (linkCache.has(cacheKey)) {
+      return linkCache.get(cacheKey);
+    }
+
+    try {
+      const data = await safeFetchJson(API_GERAR_LINK, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-password': adminPassword
+        },
+        body: JSON.stringify({
+          originUrl,
+          plataforma
+        })
+      });
+
+      const finalLink = data.shortLink || originUrl;
+      linkCache.set(cacheKey, finalLink);
+      return finalLink;
+    } catch (err) {
+      console.warn('Fallback ao link original devido a erro na API:', err.message);
+      linkCache.set(cacheKey, originUrl);
+      return originUrl;
+    }
+  }
+
+  // Ação de Compartilhar via WhatsApp ou Pinterest
+  async function dispararCompartilhamento(item, plataforma, btnElement) {
+    const originalHtml = btnElement.innerHTML;
+    btnElement.disabled = true;
+    btnElement.innerHTML = `
+      <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+      </svg>
+    `;
+
+    try {
+      const originUrl = item.offerLink || item.link_afiliado || item.productLink || '';
+      const shortLink = await obterLinkRastreado(originUrl, plataforma);
+
+      const precoFmt = (item.priceMin || item.preco || 0).toFixed(2).replace('.', ',');
+      const notaFmt = (item.ratingStar || item.nota || 4.8).toFixed(1);
+      const vendasFmt = item.sales || item.vendas || 0;
+      const titulo = item.productName || item.titulo || 'Achadinho Shopee';
+      const imagem = item.imageUrl || item.imagem || '';
+
+      if (plataforma === 'whatsapp') {
+        const copyWhatsapp = `🔥 *${titulo}*\n💰 Por apenas *R$ ${precoFmt}*\n⭐ Nota ${notaFmt} | ${vendasFmt} vendidos\n\n👉 Garanta aqui: ${shortLink}`;
+        const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(copyWhatsapp)}`;
+        window.open(waUrl, '_blank', 'noopener,noreferrer');
+      } else if (plataforma === 'pinterest') {
+        const pinDesc = `${titulo} por apenas R$ ${precoFmt}! #shopee #achadinhos #ofertas`;
+        const pinUrl = `https://pinterest.com/pin/create/button/?url=${encodeURIComponent(shortLink)}&media=${encodeURIComponent(imagem)}&description=${encodeURIComponent(pinDesc)}`;
+        window.open(pinUrl, '_blank', 'noopener,noreferrer');
+      }
+
+      showToast(`Link de ${plataforma} gerado com sucesso!`);
+    } catch (err) {
+      showToast(`Erro ao gerar link de ${plataforma}: ${err.message}`, true);
+    } finally {
+      btnElement.disabled = false;
+      btnElement.innerHTML = originalHtml;
+    }
+  }
+
   // ================= INICIALIZAÇÃO =================
   function init() {
     renderShopeeCategoriesCheckboxes();
@@ -155,7 +231,6 @@
     setupEventListeners();
   }
 
-  // Renderizar checkboxes de categorias
   function renderShopeeCategoriesCheckboxes() {
     if (!shopeeCategoriesGrid) return;
     shopeeCategoriesGrid.innerHTML = SHOPEE_CATEGORIAS_OFICIAIS.map(cat => {
@@ -173,7 +248,6 @@
       `;
     }).join('');
 
-    // Listener para cada checkbox de categoria
     document.querySelectorAll('.shopee-cat-checkbox').forEach(cb => {
       cb.addEventListener('change', (e) => {
         const catId = e.target.value;
@@ -200,7 +274,6 @@
       catDrawerSummary.textContent = labels.join(', ');
     }
 
-    // Atualiza bordas dos labels
     document.querySelectorAll('.shopee-cat-checkbox').forEach(cb => {
       const parentLabel = cb.closest('label');
       if (parentLabel) {
@@ -252,6 +325,7 @@
     btnLogout.addEventListener('click', () => {
       sessionStorage.removeItem('mimi_admin_password');
       adminPassword = '';
+      linkCache.clear();
       loginModal.classList.remove('hidden');
       adminPasswordInput.value = '';
     });
@@ -372,10 +446,9 @@
     }
   }
 
-  // ================= MINERAÇÃO GRANULAR (COM CATEGORIAS E KEYWORDS) =================
+  // ================= MINERAÇÃO GRANULAR =================
   async function executarMineracaoGranular() {
-    // 1. Coleta termos das categorias selecionadas
-    const targetsToMine = []; // { query, defaultCat }
+    const targetsToMine = [];
 
     SHOPEE_CATEGORIAS_OFICIAIS.forEach(cat => {
       if (selectedShopeeCategories.has(cat.id)) {
@@ -385,7 +458,6 @@
       }
     });
 
-    // 2. Coleta palavras-chave customizadas se existirem
     const rawCustomKw = (filterKeywordsInput?.value || '').trim();
     if (rawCustomKw) {
       const customKws = rawCustomKw.split(',').map(s => s.trim()).filter(Boolean);
@@ -478,7 +550,6 @@
           if (Array.isArray(data.produtos)) {
             for (const item of data.produtos) {
               if (item && item.itemId && !itensAcumulados.has(item.itemId)) {
-                // Já associa categoria correspondente
                 mineradosCategoryMap[item.itemId] = step.defaultCat || guessCategory(item.productName);
                 itensAcumulados.set(item.itemId, item);
               }
@@ -522,6 +593,7 @@
     }
   }
 
+  // Renderizar itens minerados com botões de compartilhamento integrados
   function renderMinerados() {
     if (mineradosList.length === 0) {
       mineracaoResultsGrid.innerHTML = `
@@ -581,6 +653,31 @@
               </div>
 
               <div class="flex items-center gap-1.5">
+                <!-- Botões de Compartilhamento Rastreado -->
+                <button 
+                  type="button" 
+                  data-action="share-wa" 
+                  data-id="${item.itemId}" 
+                  class="btn-share-miner-wa p-2 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white rounded-xl min-h-[38px] min-w-[38px] flex items-center justify-center transition-colors cursor-pointer"
+                  title="Compartilhar no WhatsApp com link rastreado"
+                >
+                  <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                    <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2m.01 1.67c2.2 0 4.26.86 5.82 2.42a8.225 8.225 0 0 1 2.41 5.83c0 4.54-3.7 8.24-8.24 8.24-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.196 8.196 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.24-8.24m4.52 11.66c-.25-.13-1.47-.72-1.7-.81-.23-.08-.39-.13-.56.13-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.13-1.06-.39-2.02-1.25-.75-.67-1.26-1.5-1.41-1.75-.15-.25-.02-.39.11-.51.11-.11.25-.29.37-.44.13-.15.17-.25.25-.42.08-.17.04-.31-.02-.44-.06-.13-.56-1.35-.77-1.85-.2-.49-.4-.42-.56-.43-.14-.01-.31-.01-.47-.01-.17 0-.44.06-.67.31-.23.25-.88.86-.88 2.1 0 1.24.9 2.44 1.03 2.61.13.17 1.77 2.7 4.29 3.79.6.26 1.07.41 1.44.53.6.19 1.15.16 1.59.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.15-1.18-.07-.12-.23-.19-.48-.32z"/>
+                  </svg>
+                </button>
+
+                <button 
+                  type="button" 
+                  data-action="share-pin" 
+                  data-id="${item.itemId}" 
+                  class="btn-share-miner-pin p-2 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded-xl min-h-[38px] min-w-[38px] flex items-center justify-center transition-colors cursor-pointer"
+                  title="Salvar no Pinterest com link rastreado"
+                >
+                  <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                    <path d="M12 0a12 12 0 0 0-4.37 23.17c-.07-.98-.13-2.48.03-3.55.14-.98.92-3.9 1.13-4.78-.11-.22-.38-.97-.38-2.26 0-2.12 1.23-3.7 2.76-3.7 1.3 0 1.93.98 1.93 2.15 0 1.31-.83 3.27-1.27 5.09-.36 1.52.77 2.76 2.27 2.76 2.72 0 4.82-2.87 4.82-7.01 0-3.67-2.64-6.23-6.4-6.23-4.36 0-6.91 3.27-6.91 6.64 0 1.32.51 2.73 1.14 3.5.13.15.14.28.1.52-.11.45-.35 1.43-.4 1.62-.06.27-.22.33-.5.2-1.85-.86-3-3.56-3-5.73 0-4.67 3.39-8.96 9.78-8.96 5.23 0 9.3 3.73 9.3 8.71 0 5.2-3.28 9.39-7.83 9.39-1.53 0-2.97-.8-3.46-1.74l-.94 3.59c-.34 1.32-1.26 2.97-1.88 3.98A12 12 0 1 0 12 0z"/>
+                  </svg>
+                </button>
+
                 <select 
                   data-id="${item.itemId}" 
                   class="select-categoria-miner bg-slate-950 border border-slate-700 text-slate-300 text-xs rounded-xl px-2 py-1.5 outline-none cursor-pointer min-h-[38px]"
@@ -611,6 +708,7 @@
       `;
     }).join('');
 
+    // Eventos nos checkboxes da mineração
     document.querySelectorAll('.item-checkbox-miner').forEach(cb => {
       cb.addEventListener('change', (e) => {
         const id = e.target.dataset.id;
@@ -633,9 +731,28 @@
       });
     });
 
+    // Eventos nos selects de categoria
     document.querySelectorAll('.select-categoria-miner').forEach(sel => {
       sel.addEventListener('change', (e) => {
         mineradosCategoryMap[e.target.dataset.id] = e.target.value;
+      });
+    });
+
+    // Eventos de Compartilhamento WhatsApp (Minerados)
+    document.querySelectorAll('.btn-share-miner-wa').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const item = mineradosList.find(p => p.itemId === id);
+        if (item) await dispararCompartilhamento(item, 'whatsapp', btn);
+      });
+    });
+
+    // Eventos de Compartilhamento Pinterest (Minerados)
+    document.querySelectorAll('.btn-share-miner-pin').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const item = mineradosList.find(p => p.itemId === id);
+        if (item) await dispararCompartilhamento(item, 'pinterest', btn);
       });
     });
   }
@@ -795,16 +912,41 @@
             </div>
           </div>
 
-          <!-- Botão Exclusão Individual -->
-          <button 
-            data-id="${item.id}" 
-            class="btn-remover-item p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors shrink-0 cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center"
-            title="Remover do site"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-            </svg>
-          </button>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <!-- Botões de Compartilhamento Rastreado nos Publicados -->
+            <button 
+              type="button" 
+              data-id="${item.id}" 
+              class="btn-share-pub-wa p-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-600 text-emerald-400 hover:text-white transition-colors cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center"
+              title="Compartilhar no WhatsApp com link rastreado"
+            >
+              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2m.01 1.67c2.2 0 4.26.86 5.82 2.42a8.225 8.225 0 0 1 2.41 5.83c0 4.54-3.7 8.24-8.24 8.24-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.196 8.196 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.24-8.24m4.52 11.66c-.25-.13-1.47-.72-1.7-.81-.23-.08-.39-.13-.56.13-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.13-1.06-.39-2.02-1.25-.75-.67-1.26-1.5-1.41-1.75-.15-.25-.02-.39.11-.51.11-.11.25-.29.37-.44.13-.15.17-.25.25-.42.08-.17.04-.31-.02-.44-.06-.13-.56-1.35-.77-1.85-.2-.49-.4-.42-.56-.43-.14-.01-.31-.01-.47-.01-.17 0-.44.06-.67.31-.23.25-.88.86-.88 2.1 0 1.24.9 2.44 1.03 2.61.13.17 1.77 2.7 4.29 3.79.6.26 1.07.41 1.44.53.6.19 1.15.16 1.59.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.15-1.18-.07-.12-.23-.19-.48-.32z"/>
+              </svg>
+            </button>
+
+            <button 
+              type="button" 
+              data-id="${item.id}" 
+              class="btn-share-pub-pin p-2 rounded-xl bg-red-500/20 hover:bg-red-600 text-red-400 hover:text-white transition-colors cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center"
+              title="Salvar no Pinterest com link rastreado"
+            >
+              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                <path d="M12 0a12 12 0 0 0-4.37 23.17c-.07-.98-.13-2.48.03-3.55.14-.98.92-3.9 1.13-4.78-.11-.22-.38-.97-.38-2.26 0-2.12 1.23-3.7 2.76-3.7 1.3 0 1.93.98 1.93 2.15 0 1.31-.83 3.27-1.27 5.09-.36 1.52.77 2.76 2.27 2.76 2.72 0 4.82-2.87 4.82-7.01 0-3.67-2.64-6.23-6.4-6.23-4.36 0-6.91 3.27-6.91 6.64 0 1.32.51 2.73 1.14 3.5.13.15.14.28.1.52-.11.45-.35 1.43-.4 1.62-.06.27-.22.33-.5.2-1.85-.86-3-3.56-3-5.73 0-4.67 3.39-8.96 9.78-8.96 5.23 0 9.3 3.73 9.3 8.71 0 5.2-3.28 9.39-7.83 9.39-1.53 0-2.97-.8-3.46-1.74l-.94 3.59c-.34 1.32-1.26 2.97-1.88 3.98A12 12 0 1 0 12 0z"/>
+              </svg>
+            </button>
+
+            <!-- Botão Exclusão Individual -->
+            <button 
+              data-id="${item.id}" 
+              class="btn-remover-item p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors shrink-0 cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center"
+              title="Remover do site"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+            </button>
+          </div>
         </div>
       `;
     }).join('');
@@ -820,6 +962,24 @@
         }
         updatePublicadosSelectionUI();
         renderPublicados();
+      });
+    });
+
+    // Eventos de Compartilhamento WhatsApp (Publicados)
+    document.querySelectorAll('.btn-share-pub-wa').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const item = publicadosList.find(p => String(p.id) === String(id));
+        if (item) await dispararCompartilhamento(item, 'whatsapp', btn);
+      });
+    });
+
+    // Eventos de Compartilhamento Pinterest (Publicados)
+    document.querySelectorAll('.btn-share-pub-pin').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const item = publicadosList.find(p => String(p.id) === String(id));
+        if (item) await dispararCompartilhamento(item, 'pinterest', btn);
       });
     });
 
@@ -856,7 +1016,7 @@
     }
   }
 
-  // ================= AÇÕES DESTRUTIVAS: REMOÇÃO INDIVIDUAL, LOTE E TUDO =================
+  // ================= AÇÕES DESTRUTIVAS =================
   async function removerProdutoDoSite(id) {
     try {
       showToast('Removendo produto no GitHub...');

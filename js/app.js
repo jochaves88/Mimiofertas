@@ -1,6 +1,7 @@
 /**
- * Mimi Ofertas - App Logic (Filtros, Busca Instantânea, Ordenação e Renderização)
- * Compatível com a lista oficial de 14 categorias da Shopee + normalização flexível
+ * Mimi Ofertas - App Logic (Filtros, Busca Instantânea, Ordenação e Compartilhamento Social)
+ * Compatível com as 14 categorias da Shopee + Compartilhamento com UTM (?p=[id]&utm_source=...)
+ * Suporte a destaque de produto único via parâmetro ?p=[id] na URL
  */
 
 (function () {
@@ -8,6 +9,7 @@
   let currentCategory = 'todas';
   let searchQuery = '';
   let currentSort = 'relevancia';
+  let targetProductId = null; // Lido do ?p=[id]
 
   const productGrid = document.getElementById('produtos-grid');
   const emptyState = document.getElementById('empty-state');
@@ -22,7 +24,7 @@
   const catScrollRight = document.getElementById('cat-scroll-right');
   const categoriesScrollContainer = document.getElementById('categories-scroll-container');
 
-  // Normalização de texto para comparações robustas (sem acentos e minúsculo)
+  // Normalização de texto para comparações robustas
   function normalizeText(str) {
     if (!str) return '';
     return str
@@ -33,7 +35,6 @@
       .trim();
   }
 
-  // Mapeamento de sinonímias entre as chaves curtas e os nomes por extenso
   const CATEGORY_MAP = {
     'todas': ['todas'],
     'casa': ['casa', 'casa e decoracao', 'decoracao', 'decoracao casa'],
@@ -55,6 +56,13 @@
   // Inicialização
   async function init() {
     const urlParams = new URLSearchParams(window.location.search);
+    
+    // Verificar se abriu com um produto específico (?p=[id])
+    const pParam = urlParams.get('p');
+    if (pParam) {
+      targetProductId = pParam.trim();
+    }
+
     const catParam = urlParams.get('cat');
     if (catParam) {
       currentCategory = normalizeText(catParam);
@@ -93,6 +101,7 @@
     if (searchInput) {
       searchInput.addEventListener('input', (e) => {
         searchQuery = normalizeText(e.target.value);
+        targetProductId = null; // Cancela foco em produto único na busca
         applyFiltersAndRender();
       });
     }
@@ -108,9 +117,9 @@
       chip.addEventListener('click', () => {
         const cat = chip.dataset.category;
         currentCategory = cat;
+        targetProductId = null; // Cancela foco em produto único ao mudar categoria
         updateActiveCategoryChip(cat);
         applyFiltersAndRender();
-        // Leva a visualização suavemente para o início do chip selecionado se estiver cortado
         chip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
       });
     });
@@ -118,12 +127,12 @@
     if (btnVerTodasOfertas) {
       btnVerTodasOfertas.addEventListener('click', () => {
         currentCategory = 'todas';
+        targetProductId = null;
         updateActiveCategoryChip('todas');
         applyFiltersAndRender();
       });
     }
 
-    // Navegação horizontal suave pelas setas do Desktop
     if (catScrollLeft && categoriesScrollContainer) {
       catScrollLeft.addEventListener('click', () => {
         categoriesScrollContainer.scrollBy({ left: -220, behavior: 'smooth' });
@@ -150,16 +159,13 @@
     });
   }
 
-  // Verifica compatibilidade de categoria com normalização
   function matchesCategory(prodCategory, selectedKey) {
     if (selectedKey === 'todas') return true;
     const prodCatNorm = normalizeText(prodCategory);
     const keyNorm = normalizeText(selectedKey);
 
-    // Se bater exatamente
     if (prodCatNorm === keyNorm) return true;
 
-    // Se estiver no mapa de categorias
     const validVariants = CATEGORY_MAP[keyNorm] || [keyNorm];
     return validVariants.some(variant => {
       const vNorm = normalizeText(variant);
@@ -169,7 +175,20 @@
 
   // Filtragem e Ordenação
   function applyFiltersAndRender() {
-    let filtered = allProducts.filter((product) => {
+    let filtered = [];
+
+    // Se houver um produto específico solicitado via ?p=[id]
+    if (targetProductId) {
+      const foundProduct = allProducts.find(p => String(p.id) === String(targetProductId));
+      if (foundProduct) {
+        // Exibe o produto solicitado em primeiro lugar absoluto
+        filtered = [foundProduct];
+        renderProducts(filtered, true);
+        return;
+      }
+    }
+
+    filtered = allProducts.filter((product) => {
       const matchCat = matchesCategory(product.categoria, currentCategory);
       
       const titleNorm = normalizeText(product.titulo);
@@ -194,7 +213,7 @@
       filtered.sort((a, b) => b.nota - a.nota);
     }
 
-    renderProducts(filtered);
+    renderProducts(filtered, false);
   }
 
   function formatMoney(valor) {
@@ -208,12 +227,16 @@
     return vendas;
   }
 
-  // Renderização dos Cards (2 colunas no mobile 360px)
-  function renderProducts(products) {
+  // Renderização dos Cards (Vitrine com links UTM para o próprio site)
+  function renderProducts(products, isSingleHighlight = false) {
     if (!productGrid) return;
 
     if (resultsCounter) {
-      resultsCounter.textContent = `${products.length} ${products.length === 1 ? 'oferta' : 'ofertas'}`;
+      if (isSingleHighlight) {
+        resultsCounter.textContent = '1 oferta selecionada';
+      } else {
+        resultsCounter.textContent = `${products.length} ${products.length === 1 ? 'oferta' : 'ofertas'}`;
+      }
     }
 
     if (products.length === 0) {
@@ -224,12 +247,47 @@
 
     if (emptyState) emptyState.classList.add('hidden');
 
-    productGrid.innerHTML = products
+    // Base URL do site atual (sem querystrings antigas)
+    const baseUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
+
+    let bannerHighlightHtml = '';
+    if (isSingleHighlight) {
+      bannerHighlightHtml = `
+        <div class="col-span-full mb-2 p-3.5 rounded-2xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-500/10 border border-orange-300 flex items-center justify-between gap-3 shadow-xs">
+          <div class="flex items-center gap-2">
+            <span class="flex h-2.5 w-2.5 rounded-full bg-orange-600 animate-ping"></span>
+            <span class="text-xs font-bold text-orange-950">Você abriu um achadinho compartilhado!</span>
+          </div>
+          <button 
+            type="button" 
+            id="btn-limpar-foco" 
+            class="px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-xs cursor-pointer transition-colors"
+          >
+            Ver todas as ofertas
+          </button>
+        </div>
+      `;
+    }
+
+    const cardsHtml = products
       .map((item) => {
+        const precoStr = formatMoney(item.preco);
+        const precoOrigStr = formatMoney(item.preco_original);
+
+        // Links de compartilhamento na vitrine apontando para o próprio site com UTM
+        const shareSiteUrlWhatsapp = `${baseUrl}?p=${encodeURIComponent(item.id)}&utm_source=whatsapp`;
+        const shareSiteUrlPinterest = `${baseUrl}?p=${encodeURIComponent(item.id)}&utm_source=pinterest`;
+
+        const waText = `🔥 *${item.titulo}*\n💰 Por apenas *${precoStr}* (-${item.desconto}% OFF)\n⭐ Nota ${item.nota.toFixed(1)} | ${formatVendas(item.vendas)} vendidos\n\n👉 Veja todos os detalhes e garanta o desconto aqui:\n${shareSiteUrlWhatsapp}`;
+        const waHref = `https://api.whatsapp.com/send?text=${encodeURIComponent(waText)}`;
+
+        const pinDesc = `${item.titulo} por apenas ${precoStr} no Mimi Ofertas! #shopee #achadinhos #ofertas`;
+        const pinHref = `https://pinterest.com/pin/create/button/?url=${encodeURIComponent(shareSiteUrlPinterest)}&media=${encodeURIComponent(item.imagem)}&description=${encodeURIComponent(pinDesc)}`;
+
         return `
         <article class="bg-white rounded-2xl border border-slate-100 shadow-xs hover:shadow-lg hover:border-orange-200 transition-all duration-300 flex flex-col overflow-hidden group">
           
-          <!-- Imagem e Badges -->
+          <!-- Imagem, Badges e Botões de Compartilhamento Flutuantes -->
           <div class="relative overflow-hidden aspect-square bg-slate-50">
             <img 
               src="${item.imagem}" 
@@ -246,6 +304,37 @@
             <!-- Categoria Tag -->
             <div class="absolute top-2 right-2 bg-black/60 backdrop-blur-md text-white font-medium text-[9px] sm:text-[11px] px-2 py-0.5 rounded-full capitalize">
               ${item.categoria}
+            </div>
+
+            <!-- Mini Botões de Compartilhar Sobrepostos (WhatsApp & Pinterest) -->
+            <div class="absolute bottom-2 right-2 flex items-center gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
+              <!-- WhatsApp -->
+              <a 
+                href="${waHref}" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shadow-md hover:scale-110 active:scale-95 transition-all cursor-pointer"
+                title="Compartilhar no WhatsApp"
+                aria-label="Compartilhar no WhatsApp"
+              >
+                <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current" viewBox="0 0 24 24">
+                  <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2m.01 1.67c2.2 0 4.26.86 5.82 2.42a8.225 8.225 0 0 1 2.41 5.83c0 4.54-3.7 8.24-8.24 8.24-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.196 8.196 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.24-8.24m4.52 11.66c-.25-.13-1.47-.72-1.7-.81-.23-.08-.39-.13-.56.13-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.13-1.06-.39-2.02-1.25-.75-.67-1.26-1.5-1.41-1.75-.15-.25-.02-.39.11-.51.11-.11.25-.29.37-.44.13-.15.17-.25.25-.42.08-.17.04-.31-.02-.44-.06-.13-.56-1.35-.77-1.85-.2-.49-.4-.42-.56-.43-.14-.01-.31-.01-.47-.01-.17 0-.44.06-.67.31-.23.25-.88.86-.88 2.1 0 1.24.9 2.44 1.03 2.61.13.17 1.77 2.7 4.29 3.79.6.26 1.07.41 1.44.53.6.19 1.15.16 1.59.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.15-1.18-.07-.12-.23-.19-.48-.32z"/>
+                </svg>
+              </a>
+
+              <!-- Pinterest -->
+              <a 
+                href="${pinHref}" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-md hover:scale-110 active:scale-95 transition-all cursor-pointer"
+                title="Salvar no Pinterest"
+                aria-label="Salvar no Pinterest"
+              >
+                <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current" viewBox="0 0 24 24">
+                  <path d="M12 0a12 12 0 0 0-4.37 23.17c-.07-.98-.13-2.48.03-3.55.14-.98.92-3.9 1.13-4.78-.11-.22-.38-.97-.38-2.26 0-2.12 1.23-3.7 2.76-3.7 1.3 0 1.93.98 1.93 2.15 0 1.31-.83 3.27-1.27 5.09-.36 1.52.77 2.76 2.27 2.76 2.72 0 4.82-2.87 4.82-7.01 0-3.67-2.64-6.23-6.4-6.23-4.36 0-6.91 3.27-6.91 6.64 0 1.32.51 2.73 1.14 3.5.13.15.14.28.1.52-.11.45-.35 1.43-.4 1.62-.06.27-.22.33-.5.2-1.85-.86-3-3.56-3-5.73 0-4.67 3.39-8.96 9.78-8.96 5.23 0 9.3 3.73 9.3 8.71 0 5.2-3.28 9.39-7.83 9.39-1.53 0-2.97-.8-3.46-1.74l-.94 3.59c-.34 1.32-1.26 2.97-1.88 3.98A12 12 0 1 0 12 0z"/>
+                </svg>
+              </a>
             </div>
           </div>
 
@@ -272,8 +361,8 @@
             <!-- Bloco de Preço e CTA -->
             <div class="mt-2.5 pt-2 border-t border-slate-100">
               <div class="flex flex-col sm:flex-row sm:items-baseline sm:gap-1.5 mb-2">
-                <span class="text-slate-400 text-[10px] sm:text-xs line-through leading-none">${formatMoney(item.preco_original)}</span>
-                <span class="text-base sm:text-xl font-black text-orange-600 tracking-tight leading-tight">${formatMoney(item.preco)}</span>
+                <span class="text-slate-400 text-[10px] sm:text-xs line-through leading-none">${precoOrigStr}</span>
+                <span class="text-base sm:text-xl font-black text-orange-600 tracking-tight leading-tight">${precoStr}</span>
               </div>
 
               <!-- CTA de Afiliado Touch-friendly -->
@@ -296,6 +385,22 @@
         `;
       })
       .join('');
+
+    productGrid.innerHTML = bannerHighlightHtml + cardsHtml;
+
+    // Listener para o botão de limpar foco
+    const btnLimparFoco = document.getElementById('btn-limpar-foco');
+    if (btnLimparFoco) {
+      btnLimparFoco.addEventListener('click', () => {
+        targetProductId = null;
+        // Limpa parâmetro da URL suavemente sem reload
+        if (window.history.pushState) {
+          const cleanUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
+          window.history.pushState({ path: cleanUrl }, '', cleanUrl);
+        }
+        applyFiltersAndRender();
+      });
+    }
   }
 
   if (document.readyState === 'loading') {
