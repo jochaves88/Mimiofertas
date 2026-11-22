@@ -93,13 +93,14 @@ module.exports = async (req, res) => {
       });
     }
 
-    // POST: Publicar novos itens ou remover itens existentes
+    // POST: Publicar novos itens, remover item individual, remover lote ou substituir tudo
     if (req.method === 'POST') {
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       const action = body.action || 'adicionar';
       const { sha, produtos: produtosAtuais } = await getFileFromGithub(token);
 
       let novosProdutos = [...produtosAtuais];
+      let commitDefaultMsg = '';
 
       if (action === 'remover') {
         const idParaRemover = body.id;
@@ -107,12 +108,26 @@ module.exports = async (req, res) => {
           return res.status(400).json({ error: 'ID do produto é obrigatório para remoção.' });
         }
         novosProdutos = novosProdutos.filter(p => String(p.id) !== String(idParaRemover));
+        commitDefaultMsg = `chore: remove produto ${idParaRemover} da vitrine`;
+      } else if (action === 'remover_lote') {
+        const idsParaRemover = Array.isArray(body.ids) ? body.ids.map(String) : [];
+        if (idsParaRemover.length === 0) {
+          return res.status(400).json({ error: 'Array de IDs é obrigatório para remoção em lote.' });
+        }
+        const idsSet = new Set(idsParaRemover);
+        novosProdutos = novosProdutos.filter(p => !idsSet.has(String(p.id)));
+        commitDefaultMsg = `chore: remove lote de ${idsParaRemover.length} produtos da vitrine`;
+      } else if (action === 'limpar_tudo') {
+        novosProdutos = [];
+        commitDefaultMsg = 'chore: limpa todos os produtos da vitrine';
       } else if (action === 'substituir') {
         if (!Array.isArray(body.produtos)) {
           return res.status(400).json({ error: 'Array de produtos é obrigatório.' });
         }
         novosProdutos = body.produtos;
+        commitDefaultMsg = `chore: substitui vitrine por ${novosProdutos.length} produtos`;
       } else {
+        // 'adicionar'
         const itensParaAdicionar = Array.isArray(body.produtos) ? body.produtos : [body.produto].filter(Boolean);
 
         for (const item of itensParaAdicionar) {
@@ -142,14 +157,15 @@ module.exports = async (req, res) => {
             novosProdutos.unshift(novoProdutoFormatado);
           }
         }
+        commitDefaultMsg = `feat: adiciona ${itensParaAdicionar.length} produtos via painel`;
       }
 
-      const commitMsg = body.commitMessage || `feat: atualiza produtos via painel (${novosProdutos.length} itens)`;
+      const commitMsg = body.commitMessage || commitDefaultMsg;
       const githubRes = await updateFileOnGithub(token, sha, novosProdutos, commitMsg);
 
       return res.status(200).json({
         success: true,
-        message: 'Arquivo data/produtos.json atualizado com sucesso no GitHub!',
+        message: 'Catálogo atualizado com sucesso no GitHub em commit único!',
         commitSha: githubRes.commit?.sha,
         totalProdutos: novosProdutos.length,
         produtos: novosProdutos
