@@ -247,9 +247,6 @@
 
     if (emptyState) emptyState.classList.add('hidden');
 
-    // Base URL do site atual (sem querystrings antigas)
-    const baseUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
-
     let bannerHighlightHtml = '';
     if (isSingleHighlight) {
       bannerHighlightHtml = `
@@ -273,11 +270,10 @@
       .map((item) => {
         const precoStr = formatMoney(item.preco);
         const precoOrigStr = formatMoney(item.preco_original);
+        const precoFormatado = (item.preco || 0).toFixed(2).replace('.', ',');
 
-        // Links de compartilhamento na vitrine (WhatsApp direciona ao site com UTM, Pinterest vai direto para o link de afiliado da Shopee)
-        const shareSiteUrlWhatsapp = `${baseUrl}?p=${encodeURIComponent(item.id)}&utm_source=whatsapp`;
-
-        const waText = `🔥 *${item.titulo}*\n💰 Por apenas *${precoStr}* (-${item.desconto}% OFF)\n⭐ Nota ${item.nota.toFixed(1)} | ${formatVendas(item.vendas)} vendidos\n\n👉 Veja todos os detalhes e garanta o desconto aqui:\n${shareSiteUrlWhatsapp}`;
+        // Compartilhamento direto para link de afiliado da Shopee (WhatsApp e Pinterest)
+        const waText = `🔥 *${item.titulo}*\n💰 Por apenas *R$ ${precoFormatado}*\n\n👉 Garanta aqui: ${item.link_afiliado}`;
         const waHref = `https://api.whatsapp.com/send?text=${encodeURIComponent(waText)}`;
 
         const pinDesc = `${item.titulo} por apenas ${precoStr} no Mimi Ofertas! #shopee #achadinhos #ofertas`;
