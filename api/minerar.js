@@ -1,8 +1,8 @@
 const crypto = require('crypto');
 
-function checkAuth(event) {
+function checkAuth(req) {
   const adminPassword = process.env.ADMIN_PASSWORD;
-  const providedPassword = event.headers['x-admin-password'] || event.headers['X-Admin-Password'];
+  const providedPassword = req.headers['x-admin-password'] || req.headers['X-Admin-Password'];
   if (!adminPassword || providedPassword !== adminPassword) {
     return false;
   }
@@ -14,50 +14,39 @@ function generateShopeeSignature(appId, secret, timestamp, payloadStr) {
   return crypto.createHash('sha256').update(baseStr, 'utf8').digest('hex');
 }
 
-exports.handler = async (event) => {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type, x-admin-password',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Content-Type': 'application/json'
-  };
+module.exports = async (req, res) => {
+  // Configuração de CORS para requisições seguras
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
 
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
+  if (req.method === 'OPTIONS') {
+    return res.status(200).json({ ok: true });
   }
 
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Método não permitido' }) };
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Método não permitido' });
   }
 
-  if (!checkAuth(event)) {
-    return { statusCode: 401, headers, body: JSON.stringify({ error: 'Não autorizado. Senha de admin inválida.' }) };
+  if (!checkAuth(req)) {
+    return res.status(401).json({ error: 'Não autorizado. Senha de admin inválida.' });
   }
 
   const appId = process.env.SHOPEE_APP_ID;
   const secret = process.env.SHOPEE_SECRET;
 
   if (!appId || !secret) {
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: 'SHOPEE_APP_ID ou SHOPEE_SECRET não configurados no ambiente Netlify.' })
-    };
+    return res.status(500).json({
+      error: 'SHOPEE_APP_ID ou SHOPEE_SECRET não configurados no ambiente Vercel.'
+    });
   }
 
   try {
-    let body = {};
-    try {
-      body = JSON.parse(event.body || '{}');
-    } catch (e) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'JSON de requisição malformado.' }) };
-    }
+    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
 
-    // Recebe apenas 1 keyword e 1 página por requisição (respostas ultra rápidas < 2s)
     const keyword = (body.keyword || 'achadinhos').toString().trim();
     const page = parseInt(body.page, 10) || 1;
 
-    // Filtros opcionais aplicados nesta página
     const precoMin = parseFloat(body.precoMin) || 0;
     const precoMax = parseFloat(body.precoMax) || 999999;
     const vendasMin = parseInt(body.vendasMin, 10) || 0;
@@ -116,30 +105,21 @@ exports.handler = async (event) => {
 
     if (!resShopee.ok) {
       const errText = await resShopee.text();
-      return {
-        statusCode: resShopee.status,
-        headers,
-        body: JSON.stringify({ 
-          error: `Erro retornado pela API da Shopee (${resShopee.status}): ${errText.slice(0, 200)}` 
-        })
-      };
+      return res.status(resShopee.status).json({
+        error: `Erro retornado pela API da Shopee (${resShopee.status}): ${errText.slice(0, 200)}`
+      });
     }
 
     const resJson = await resShopee.json();
     if (resJson.errors && resJson.errors.length > 0) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ 
-          error: `Erro GraphQL Shopee: ${resJson.errors[0].message || 'Falha na consulta'}` 
-        })
-      };
+      return res.status(400).json({
+        error: `Erro GraphQL Shopee: ${resJson.errors[0].message || 'Falha na consulta'}`
+      });
     }
 
     const nodes = resJson?.data?.productOfferV2?.nodes || [];
     const hasNextPage = resJson?.data?.productOfferV2?.pageInfo?.hasNextPage || false;
 
-    // Filtragem dos itens recebidos nesta página
     const itensFiltrados = [];
 
     for (const item of nodes) {
@@ -178,23 +158,17 @@ exports.handler = async (event) => {
       });
     }
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        success: true,
-        keyword,
-        page,
-        hasNextPage,
-        totalPagina: itensFiltrados.length,
-        produtos: itensFiltrados
-      })
-    };
+    return res.status(200).json({
+      success: true,
+      keyword,
+      page,
+      hasNextPage,
+      totalPagina: itensFiltrados.length,
+      produtos: itensFiltrados
+    });
   } catch (err) {
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: 'Erro interno ao processar mineração: ' + err.message })
-    };
+    return res.status(500).json({
+      error: 'Erro interno ao processar mineração: ' + err.message
+    });
   }
 };

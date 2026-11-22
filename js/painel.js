@@ -4,8 +4,8 @@
  */
 
 (function () {
-  const API_MINERAR = '/.netlify/functions/minerar';
-  const API_PUBLICAR = '/.netlify/functions/publicar';
+  const API_MINERAR = '/api/minerar';
+  const API_PUBLICAR = '/api/publicar';
 
   let adminPassword = sessionStorage.getItem('mimi_admin_password') || '';
   let activeTab = 'minerar';

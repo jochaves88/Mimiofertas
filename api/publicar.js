@@ -1,6 +1,6 @@
-function checkAuth(event) {
+function checkAuth(req) {
   const adminPassword = process.env.ADMIN_PASSWORD;
-  const providedPassword = event.headers['x-admin-password'] || event.headers['X-Admin-Password'];
+  const providedPassword = req.headers['x-admin-password'] || req.headers['X-Admin-Password'];
   if (!adminPassword || providedPassword !== adminPassword) {
     return false;
   }
@@ -17,7 +17,7 @@ async function getFileFromGithub(token) {
     headers: {
       'Authorization': `Bearer ${token}`,
       'Accept': 'application/vnd.github.v3+json',
-      'User-Agent': 'MimiOfertas-NetlifyFunction'
+      'User-Agent': 'MimiOfertas-VercelFunction'
     }
   });
 
@@ -44,7 +44,7 @@ async function updateFileOnGithub(token, sha, produtos, commitMessage) {
       'Authorization': `Bearer ${token}`,
       'Accept': 'application/vnd.github.v3+json',
       'Content-Type': 'application/json',
-      'User-Agent': 'MimiOfertas-NetlifyFunction'
+      'User-Agent': 'MimiOfertas-VercelFunction'
     },
     body: JSON.stringify({
       message: commitMessage || 'chore: atualiza catalogo data/produtos.json via painel',
@@ -62,50 +62,41 @@ async function updateFileOnGithub(token, sha, produtos, commitMessage) {
   return await res.json();
 }
 
-exports.handler = async (event) => {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type, x-admin-password',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Content-Type': 'application/json'
-  };
+module.exports = async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
+  if (req.method === 'OPTIONS') {
+    return res.status(200).json({ ok: true });
   }
 
-  if (!checkAuth(event)) {
-    return { statusCode: 401, headers, body: JSON.stringify({ error: 'Não autorizado. Senha inválida.' }) };
+  if (!checkAuth(req)) {
+    return res.status(401).json({ error: 'Não autorizado. Senha inválida.' });
   }
 
   const token = process.env.GITHUB_TOKEN;
   if (!token) {
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: 'GITHUB_TOKEN não configurado nas variáveis de ambiente da Netlify.' })
-    };
+    return res.status(500).json({
+      error: 'GITHUB_TOKEN não configurado nas variáveis de ambiente da Vercel.'
+    });
   }
 
   try {
     // GET: Retornar produtos atuais do GitHub
-    if (event.httpMethod === 'GET') {
+    if (req.method === 'GET') {
       const { sha, produtos } = await getFileFromGithub(token);
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          success: true,
-          sha,
-          produtos
-        })
-      };
+      return res.status(200).json({
+        success: true,
+        sha,
+        produtos
+      });
     }
 
     // POST: Publicar novos itens ou remover itens existentes
-    if (event.httpMethod === 'POST') {
-      const body = JSON.parse(event.body || '{}');
-      const action = body.action || 'adicionar'; // 'adicionar', 'remover', 'substituir'
+    if (req.method === 'POST') {
+      const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      const action = body.action || 'adicionar';
       const { sha, produtos: produtosAtuais } = await getFileFromGithub(token);
 
       let novosProdutos = [...produtosAtuais];
@@ -113,24 +104,22 @@ exports.handler = async (event) => {
       if (action === 'remover') {
         const idParaRemover = body.id;
         if (!idParaRemover) {
-          return { statusCode: 400, headers, body: JSON.stringify({ error: 'ID do produto é obrigatório para remoção.' }) };
+          return res.status(400).json({ error: 'ID do produto é obrigatório para remoção.' });
         }
         novosProdutos = novosProdutos.filter(p => String(p.id) !== String(idParaRemover));
       } else if (action === 'substituir') {
         if (!Array.isArray(body.produtos)) {
-          return { statusCode: 400, headers, body: JSON.stringify({ error: 'Array de produtos é obrigatório.' }) };
+          return res.status(400).json({ error: 'Array de produtos é obrigatório.' });
         }
         novosProdutos = body.produtos;
       } else {
-        // 'adicionar': recebe itens novos (da mineração ou formulário)
         const itensParaAdicionar = Array.isArray(body.produtos) ? body.produtos : [body.produto].filter(Boolean);
-        
+
         for (const item of itensParaAdicionar) {
-          // Mapear campos da Shopee para o formato do Mimi Ofertas
           const preco = parseFloat(item.preco ?? item.priceMin ?? 0);
           const precoOriginal = parseFloat(item.preco_original ?? (preco * 1.5).toFixed(2));
-          const descontoCalculado = precoOriginal > preco 
-            ? Math.round(((precoOriginal - preco) / precoOriginal) * 100) 
+          const descontoCalculado = precoOriginal > preco
+            ? Math.round(((precoOriginal - preco) / precoOriginal) * 100)
             : 30;
 
           const novoProdutoFormatado = {
@@ -146,12 +135,11 @@ exports.handler = async (event) => {
             link_afiliado: item.link_afiliado || item.offerLink || item.productLink || ''
           };
 
-          // Evitar duplicações pelo id
           const indexExistente = novosProdutos.findIndex(p => String(p.id) === String(novoProdutoFormatado.id));
           if (indexExistente >= 0) {
             novosProdutos[indexExistente] = novoProdutoFormatado;
           } else {
-            novosProdutos.unshift(novoProdutoFormatado); // Adiciona no início da vitrine
+            novosProdutos.unshift(novoProdutoFormatado);
           }
         }
       }
@@ -159,26 +147,19 @@ exports.handler = async (event) => {
       const commitMsg = body.commitMessage || `feat: atualiza produtos via painel (${novosProdutos.length} itens)`;
       const githubRes = await updateFileOnGithub(token, sha, novosProdutos, commitMsg);
 
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          success: true,
-          message: 'Arquivo data/produtos.json atualizado com sucesso no GitHub!',
-          commitSha: githubRes.commit?.sha,
-          totalProdutos: novosProdutos.length,
-          produtos: novosProdutos
-        })
-      };
+      return res.status(200).json({
+        success: true,
+        message: 'Arquivo data/produtos.json atualizado com sucesso no GitHub!',
+        commitSha: githubRes.commit?.sha,
+        totalProdutos: novosProdutos.length,
+        produtos: novosProdutos
+      });
     }
 
-    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Método não suportado' }) };
+    return res.status(405).json({ error: 'Método não suportado' });
   } catch (err) {
-    console.error('Erro na função publicar:', err);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: 'Erro ao comunicar com GitHub: ' + err.message })
-    };
+    return res.status(500).json({
+      error: 'Erro ao comunicar com GitHub: ' + err.message
+    });
   }
 };
