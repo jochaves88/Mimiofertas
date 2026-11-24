@@ -92,6 +92,8 @@
   const mobileActionBarMinerar = document.getElementById('mobile-action-bar-minerar');
   const selectedCounter = document.getElementById('selected-counter');
   const btnSelecionarTodosFooter = document.getElementById('btn-selecionar-todos-footer');
+  const btnCsvPinterestMinerar = document.getElementById('btn-csv-pinterest-minerar');
+  const btnCsvPinterestMinerarLabel = document.getElementById('btn-csv-pinterest-minerar-label');
   const btnPublicarSelecionados = document.getElementById('btn-publicar-selecionados');
   const btnPublicarLabel = document.getElementById('btn-publicar-label');
 
@@ -106,6 +108,8 @@
   const mobileActionBarExcluir = document.getElementById('mobile-action-bar-excluir');
   const excluirCounter = document.getElementById('excluir-counter');
   const btnLimparSelecaoExcluir = document.getElementById('btn-limpar-selecao-excluir');
+  const btnCsvPinterestPublicados = document.getElementById('btn-csv-pinterest-publicados');
+  const btnCsvPinterestPublicadosLabel = document.getElementById('btn-csv-pinterest-publicados-label');
   const btnExcluirLoteConfirmar = document.getElementById('btn-excluir-lote-confirmar');
   const btnExcluirLoteLabel = document.getElementById('btn-excluir-lote-label');
 
@@ -432,6 +436,9 @@
 
     // Modal Criar Novo Pin (Pinterest)
     setupPinterestModalEvents();
+
+    // Modal Exportação CSV Pinterest em Massa
+    setupCsvPinterestModalEvents();
   }
 
   function switchTab(tab) {
@@ -792,6 +799,12 @@
     selectedCounter.textContent = `${count} ${count === 1 ? 'produto' : 'produtos'}`;
     btnPublicarSelecionados.disabled = count === 0;
     btnPublicarLabel.textContent = count > 0 ? `Publicar (${count})` : 'Publicar no Site';
+    if (btnCsvPinterestMinerar) {
+      btnCsvPinterestMinerar.disabled = count === 0;
+      if (btnCsvPinterestMinerarLabel) {
+        btnCsvPinterestMinerarLabel.textContent = count > 0 ? `CSV Pinterest (${count})` : 'CSV Pinterest';
+      }
+    }
   }
 
   // ================= PUBLICAÇÃO NO GITHUB =================
@@ -1020,6 +1033,12 @@
     const count = publicadosSelectedIds.size;
     excluirCounter.textContent = `${count} ${count === 1 ? 'selecionado' : 'selecionados'}`;
     btnExcluirLoteLabel.textContent = `Excluir (${count})`;
+    if (btnCsvPinterestPublicados) {
+      btnCsvPinterestPublicados.disabled = count === 0;
+      if (btnCsvPinterestPublicadosLabel) {
+        btnCsvPinterestPublicadosLabel.textContent = count > 0 ? `CSV Pinterest (${count})` : 'CSV Pinterest';
+      }
+    }
 
     if (count > 0 && activeTab === 'publicados') {
       mobileActionBarExcluir.classList.remove('hidden');
@@ -1853,6 +1872,347 @@
     if (btnPinPublicarRapido) btnPinPublicarRapido.addEventListener('click', publicarRapidoPin);
     if (btnPinBaixarArte) btnPinBaixarArte.addEventListener('click', baixarImagemOuArtePin);
     if (btnPinAbrirCriador) btnPinAbrirCriador.addEventListener('click', abrirCriadorPinsPinterest);
+  }
+
+  // ================= MODAL: EXPORTAÇÃO CSV PINTEREST EM MASSA =================
+  const modalCsvPinterest = document.getElementById('modal-csv-pinterest');
+  const btnCloseModalCsv = document.getElementById('btn-close-modal-csv');
+  const btnCancelModalCsv = document.getElementById('btn-cancel-modal-csv');
+  const csvPinItemsCount = document.getElementById('csv-pin-items-count');
+  const csvPinBoardInput = document.getElementById('csv-pin-board-input');
+  const csvPinBoardCategoryToggle = document.getElementById('csv-pin-board-category-toggle');
+  const csvPinScheduleToggle = document.getElementById('csv-pin-schedule-toggle');
+  const csvPinScheduleSettings = document.getElementById('csv-pin-schedule-settings');
+  const csvPinStartDatetime = document.getElementById('csv-pin-start-datetime');
+  const csvPinIntervalHours = document.getElementById('csv-pin-interval-hours');
+  const csvProgressBox = document.getElementById('csv-progress-box');
+  const csvProgressText = document.getElementById('csv-progress-text');
+  const csvProgressPercent = document.getElementById('csv-progress-percent');
+  const csvProgressBar = document.getElementById('csv-progress-bar');
+  const csvPostDownloadBox = document.getElementById('csv-post-download-box');
+  const btnGerarCsvPinterest = document.getElementById('btn-gerar-csv-pinterest');
+  const btnGerarCsvLabel = document.getElementById('btn-gerar-csv-label');
+
+  let currentCsvSourceTab = 'minerar';
+  const DEFAULT_PINTEREST_BOARD = 'Achadinhos Shopee';
+
+  function getSelectedItemsForCsv() {
+    if (currentCsvSourceTab === 'minerar') {
+      return mineradosList.filter(item => mineradosSelectedIds.has(item.itemId));
+    } else {
+      return publicadosList.filter(item => publicadosSelectedIds.has(String(item.id)));
+    }
+  }
+
+  function abrirModalCsvPinterest(sourceTab) {
+    currentCsvSourceTab = sourceTab || activeTab;
+    const items = getSelectedItemsForCsv();
+
+    if (items.length === 0) {
+      showToast('Selecione pelo menos 1 produto para exportar o CSV.', true);
+      return;
+    }
+
+    if (csvPinItemsCount) {
+      csvPinItemsCount.textContent = `${items.length} ${items.length === 1 ? 'selecionado' : 'selecionados'}`;
+    }
+
+    // Carregar pasta salva no localStorage
+    const savedBoard = localStorage.getItem('mimi_pinterest_board') || DEFAULT_PINTEREST_BOARD;
+    if (csvPinBoardInput) {
+      csvPinBoardInput.value = savedBoard;
+      csvPinBoardInput.disabled = false;
+      csvPinBoardInput.classList.remove('opacity-40');
+    }
+    if (csvPinBoardCategoryToggle) {
+      csvPinBoardCategoryToggle.checked = false;
+    }
+
+    // Data/hora inicial padrão: próxima hora cheia + 1h
+    if (csvPinStartDatetime) {
+      const d = new Date();
+      d.setMinutes(0, 0, 0);
+      d.setHours(d.getHours() + 2);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const h = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      csvPinStartDatetime.value = `${y}-${m}-${day}T${h}:${min}`;
+    }
+
+    if (csvPinScheduleToggle) {
+      csvPinScheduleToggle.checked = true;
+    }
+    if (csvPinScheduleSettings) {
+      csvPinScheduleSettings.classList.remove('hidden');
+    }
+
+    if (csvProgressBox) csvProgressBox.classList.add('hidden');
+    if (csvProgressBar) csvProgressBar.style.width = '0%';
+    if (csvProgressPercent) csvProgressPercent.textContent = '0%';
+    if (csvPostDownloadBox) csvPostDownloadBox.classList.add('hidden');
+
+    if (btnGerarCsvPinterest) btnGerarCsvPinterest.disabled = false;
+    if (btnGerarCsvLabel) btnGerarCsvLabel.textContent = 'Gerar e Baixar CSV';
+
+    if (modalCsvPinterest) {
+      modalCsvPinterest.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+    }
+  }
+
+  function fecharModalCsvPinterest() {
+    if (modalCsvPinterest) {
+      modalCsvPinterest.classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+    }
+  }
+
+  function formatarCategoriaBoard(item) {
+    const rawCat = (item.categoria || '').trim().toLowerCase();
+    const catObj = SHOPEE_CATEGORIAS_OFICIAIS.find(c => c.id === rawCat || c.siteCat === rawCat);
+    if (catObj && catObj.label) {
+      return catObj.label;
+    }
+    if (rawCat) {
+      return rawCat.charAt(0).toUpperCase() + rawCat.slice(1);
+    }
+    return DEFAULT_PINTEREST_BOARD;
+  }
+
+  function gerarKeywordsCsv(item) {
+    const words = ['achadinhos', 'shopee', 'ofertas'];
+    const cat = (item.categoria || '').trim().toLowerCase();
+    if (cat) {
+      const catObj = SHOPEE_CATEGORIAS_OFICIAIS.find(c => c.id === cat || c.siteCat === cat);
+      if (catObj && catObj.label) {
+        words.push(catObj.label.toLowerCase().split(' ')[0]);
+      } else {
+        words.push(cat);
+      }
+    }
+
+    const title = (item.productName || item.titulo || '').toLowerCase();
+    const titleWords = title.replace(/[^a-záàâãéèêíïóôõöúçñ0-9\s]/gi, '').split(/\s+/).filter(w => w.length > 3 && !['para', 'com', 'kit', 'promoção', 'frete', 'grátis', 'super'].includes(w));
+    if (titleWords.length > 0 && words.length < 5) {
+      words.push(titleWords[0]);
+    }
+
+    const uniqueWords = Array.from(new Set(words)).slice(0, 5);
+    return uniqueWords.join(', ');
+  }
+
+  function escapeCsvField(val) {
+    if (val === null || val === undefined) return '""';
+    const str = String(val).replace(/"/g, '""');
+    return `"${str}"`;
+  }
+
+  async function executarGeracaoCsvPinterest() {
+    const items = getSelectedItemsForCsv();
+    if (items.length === 0) {
+      showToast('Nenhum produto selecionado.', true);
+      return;
+    }
+
+    // Configuração da pasta
+    const useCategoryAsBoard = csvPinBoardCategoryToggle && csvPinBoardCategoryToggle.checked;
+    let fallbackBoard = (csvPinBoardInput && csvPinBoardInput.value.trim()) || DEFAULT_PINTEREST_BOARD;
+    localStorage.setItem('mimi_pinterest_board', fallbackBoard);
+
+    // Configuração de agendamento
+    const isScheduled = csvPinScheduleToggle && csvPinScheduleToggle.checked;
+    const intervalHours = Number(csvPinIntervalHours?.value || 2);
+    let startTimestamp = Date.now();
+
+    if (isScheduled && csvPinStartDatetime && csvPinStartDatetime.value) {
+      const parsedDate = new Date(csvPinStartDatetime.value);
+      if (!isNaN(parsedDate.getTime())) {
+        startTimestamp = parsedDate.getTime();
+      }
+    }
+
+    // Travar botão e exibir progresso
+    if (btnGerarCsvPinterest) btnGerarCsvPinterest.disabled = true;
+    if (btnGerarCsvLabel) btnGerarCsvLabel.textContent = 'Gerando links rastreados...';
+    if (csvProgressBox) csvProgressBox.classList.remove('hidden');
+    if (csvPostDownloadBox) csvPostDownloadBox.classList.add('hidden');
+
+    const total = items.length;
+    const csvRows = [];
+
+    // Cabeçalho Oficial do Pinterest Bulk Upload
+    csvRows.push('Title,Media URL,Pinterest board,Thumbnail,Description,Link,Publish date,Keywords');
+
+    for (let i = 0; i < total; i++) {
+      const item = items[i];
+      const percent = Math.round(((i + 1) / total) * 100);
+
+      if (csvProgressPercent) csvProgressPercent.textContent = `${percent}%`;
+      if (csvProgressBar) csvProgressBar.style.width = `${percent}%`;
+      if (csvProgressText) {
+        csvProgressText.innerHTML = `
+          <svg class="w-3.5 h-3.5 animate-spin text-red-500 shrink-0" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          Gerando link ${i + 1} de ${total}: ${(item.productName || item.titulo || '').slice(0, 20)}...
+        `;
+      }
+
+      // Link rastreado com subIds: ["pinterest"]
+      const originUrl = item.offerLink || item.link_afiliado || item.productLink || '';
+      let shortLink = originUrl;
+      try {
+        shortLink = await obterLinkRastreado(originUrl, 'pinterest');
+      } catch (err) {
+        console.warn('Fallback ao link original no CSV:', err.message);
+      }
+
+      // 1. Title (limpo até 100 chars)
+      const rawTitle = (item.productName || item.titulo || 'Achadinho Shopee').trim();
+      const title = rawTitle.slice(0, 100);
+
+      // 2. Media URL
+      const mediaUrl = (item.imageUrl || item.imagem || '').trim();
+
+      // 3. Pinterest board
+      const board = useCategoryAsBoard ? formatarCategoriaBoard(item) : fallbackBoard;
+
+      // 4. Thumbnail (vazio conforme padrão)
+      const thumbnail = '';
+
+      // 5. Description (até 500 chars)
+      const precoVal = item.priceMin || item.preco || 0;
+      const precoFmt = Number(precoVal).toFixed(2).replace('.', ',');
+      const notaVal = item.ratingStar || item.nota || 4.8;
+      const notaFmt = Number(notaVal).toFixed(1);
+      const vendasVal = item.sales || item.vendas || 0;
+      const catNome = (item.categoria || '').trim();
+      const hashtagNicho = catNome ? ` #${catNome.toLowerCase().replace(/[^a-z0-9]/g, '')}` : '';
+
+      let description = `🔥 Achadinho Shopee imperdível!\n💰 Por apenas R$ ${precoFmt}\n⭐ Nota ${notaFmt} | ${vendasVal} vendidos\n\n👉 Toque no link para garantir com desconto na Shopee!\n\n#shopee #achadinhos #ofertas #comprinhas${hashtagNicho}`;
+      if (description.length > 500) {
+        description = description.slice(0, 497) + '...';
+      }
+
+      // 6. Link
+      const link = shortLink;
+
+      // 7. Publish date (ISO UTC: YYYY-MM-DDTHH:MM:SS)
+      let publishDate = '';
+      if (isScheduled) {
+        const itemTime = new Date(startTimestamp + (i * intervalHours * 3600 * 1000));
+        const y = itemTime.getUTCFullYear();
+        const m = String(itemTime.getUTCMonth() + 1).padStart(2, '0');
+        const d = String(itemTime.getUTCDate()).padStart(2, '0');
+        const h = String(itemTime.getUTCHours()).padStart(2, '0');
+        const min = String(itemTime.getUTCMinutes()).padStart(2, '0');
+        const s = String(itemTime.getUTCSeconds()).padStart(2, '0');
+        publishDate = `${y}-${m}-${d}T${h}:${min}:${s}`;
+      }
+
+      // 8. Keywords (até 5 termos)
+      const keywords = gerarKeywordsCsv(item);
+
+      // Montar linha escapada
+      const row = [
+        escapeCsvField(title),
+        escapeCsvField(mediaUrl),
+        escapeCsvField(board),
+        escapeCsvField(thumbnail),
+        escapeCsvField(description),
+        escapeCsvField(link),
+        escapeCsvField(publishDate),
+        escapeCsvField(keywords)
+      ].join(',');
+
+      csvRows.push(row);
+    }
+
+    // Criar arquivo CSV em UTF-8 SEM BOM
+    const csvContent = csvRows.join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    const now = new Date();
+    const yStr = now.getFullYear();
+    const mStr = String(now.getMonth() + 1).padStart(2, '0');
+    const dStr = String(now.getDate()).padStart(2, '0');
+    const hStr = String(now.getHours()).padStart(2, '0');
+    const minStr = String(now.getMinutes()).padStart(2, '0');
+    const filename = `pins-pinterest-${yStr}${mStr}${dStr}-${hStr}${minStr}.csv`;
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    // Finalizar UI com feedback
+    if (btnGerarCsvPinterest) btnGerarCsvPinterest.disabled = false;
+    if (btnGerarCsvLabel) btnGerarCsvLabel.textContent = 'Gerar Novamente';
+    if (csvProgressText) {
+      csvProgressText.textContent = `Concluído: ${total} pins processados!`;
+    }
+    if (csvPostDownloadBox) {
+      csvPostDownloadBox.classList.remove('hidden');
+    }
+
+    showToast(`CSV ${filename} baixado com sucesso!`);
+  }
+
+  function setupCsvPinterestModalEvents() {
+    if (btnCsvPinterestMinerar) {
+      btnCsvPinterestMinerar.addEventListener('click', () => abrirModalCsvPinterest('minerar'));
+    }
+    if (btnCsvPinterestPublicados) {
+      btnCsvPinterestPublicados.addEventListener('click', () => abrirModalCsvPinterest('publicados'));
+    }
+
+    if (btnCloseModalCsv) btnCloseModalCsv.addEventListener('click', fecharModalCsvPinterest);
+    if (btnCancelModalCsv) btnCancelModalCsv.addEventListener('click', fecharModalCsvPinterest);
+
+    if (modalCsvPinterest) {
+      modalCsvPinterest.addEventListener('click', (e) => {
+        if (e.target === modalCsvPinterest) fecharModalCsvPinterest();
+      });
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modalCsvPinterest && !modalCsvPinterest.classList.contains('hidden')) {
+        fecharModalCsvPinterest();
+      }
+    });
+
+    if (csvPinBoardCategoryToggle && csvPinBoardInput) {
+      csvPinBoardCategoryToggle.addEventListener('change', () => {
+        const isCat = csvPinBoardCategoryToggle.checked;
+        csvPinBoardInput.disabled = isCat;
+        if (isCat) {
+          csvPinBoardInput.classList.add('opacity-40');
+        } else {
+          csvPinBoardInput.classList.remove('opacity-40');
+        }
+      });
+    }
+
+    if (csvPinScheduleToggle && csvPinScheduleSettings) {
+      csvPinScheduleToggle.addEventListener('change', () => {
+        if (csvPinScheduleToggle.checked) {
+          csvPinScheduleSettings.classList.remove('hidden');
+        } else {
+          csvPinScheduleSettings.classList.add('hidden');
+        }
+      });
+    }
+
+    if (btnGerarCsvPinterest) {
+      btnGerarCsvPinterest.addEventListener('click', executarGeracaoCsvPinterest);
+    }
   }
 
   if (document.readyState === 'loading') {
