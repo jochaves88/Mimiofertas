@@ -9,10 +9,90 @@
   const API_PUBLICAR = '/api/publicar';
   const API_GERAR_LINK = '/api/gerar-link';
   const API_PROXY_IMAGEM = '/api/proxy-imagem';
+  const API_GERAR_COPY = '/api/gerar-copy';
+  const API_GERAR_UGC = '/api/gerar-ugc';
 
   // Cache em memória de links rastreados para evitar chamadas redundantes
   // chave: `${originUrl}_${plataforma}` -> shortLink
   const linkCache = new Map();
+
+  // Cache em sessão para IA de Copys e Imagens UGC
+  // aiCopyCache: `${itemId}_${plataforma}_${gatilho}` -> response JSON
+  // aiUgcCache: `${itemId}_${cenario}` -> { ugcUrl, hosted }
+  // aiActiveUgcByItem: `${itemId}` -> { ugcUrl, hosted }
+  const aiCopyCache = new Map();
+  const aiUgcCache = new Map();
+  const aiActiveUgcByItem = new Map();
+
+  function getItemId(item) {
+    return String(item?.itemId || item?.id || '');
+  }
+
+  function getItemDisplayImage(item) {
+    const id = getItemId(item);
+    if (id && aiActiveUgcByItem.has(id)) {
+      return aiActiveUgcByItem.get(id).ugcUrl;
+    }
+    return item?.imageUrl || item?.imagem || '';
+  }
+
+  async function gerarCopyComIA(item, plataforma, gatilho = 'auto') {
+    const id = getItemId(item);
+    const cacheKey = `${id}_${plataforma}_${gatilho}`;
+    if (aiCopyCache.has(cacheKey)) {
+      return aiCopyCache.get(cacheKey);
+    }
+
+    const payload = {
+      titulo: (item.productName || item.titulo || 'Achadinho Shopee').trim(),
+      preco: Number(item.priceMin || item.preco || 0),
+      nota: Number(item.ratingStar || item.nota || 4.8),
+      vendas: Number(item.sales || item.vendas || 0),
+      categoria: (item.categoria || mineradosCategoryMap[id] || 'geral').trim(),
+      plataforma,
+      gatilho
+    };
+
+    const data = await safeFetchJson(API_GERAR_COPY, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-password': adminPassword
+      },
+      body: JSON.stringify(payload)
+    });
+
+    aiCopyCache.set(cacheKey, data);
+    return data;
+  }
+
+  async function gerarUgcComIA(item, cenario = 'auto') {
+    const id = getItemId(item);
+    const cacheKey = `${id}_${cenario}`;
+    if (aiUgcCache.has(cacheKey)) {
+      return aiUgcCache.get(cacheKey);
+    }
+
+    const originalImg = (item.imageUrl || item.imagem || '').trim();
+    const payload = {
+      imageUrl: originalImg,
+      titulo: (item.productName || item.titulo || 'Achadinho Shopee').trim(),
+      categoria: (item.categoria || mineradosCategoryMap[id] || 'casa').trim(),
+      cenario
+    };
+
+    const data = await safeFetchJson(API_GERAR_UGC, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-password': adminPassword
+      },
+      body: JSON.stringify(payload)
+    });
+
+    aiUgcCache.set(cacheKey, data);
+    return data;
+  }
 
   // Lista oficial das 14 principais categorias da Shopee Brasil com mapeamento
   const SHOPEE_CATEGORIAS_OFICIAIS = [
@@ -339,6 +419,9 @@
       sessionStorage.removeItem('mimi_admin_password');
       adminPassword = '';
       linkCache.clear();
+      aiCopyCache.clear();
+      aiUgcCache.clear();
+      aiActiveUgcByItem.clear();
       loginModal.classList.remove('hidden');
       adminPasswordInput.value = '';
     });
@@ -439,6 +522,9 @@
 
     // Modal Exportação CSV Pinterest em Massa
     setupCsvPinterestModalEvents();
+
+    // Modal Estúdio IA do Produto
+    setupAiStudioEvents();
   }
 
   function switchTab(tab) {
@@ -633,7 +719,7 @@
         <div class="bg-slate-900 border ${isSelected ? 'border-orange-500 ring-1 ring-orange-500/50' : 'border-slate-800'} rounded-2xl sm:rounded-3xl p-3 sm:p-4 flex flex-col sm:flex-row gap-3 sm:gap-4 transition-all">
           
           <div class="relative w-full sm:w-28 h-40 sm:h-28 rounded-xl sm:rounded-2xl overflow-hidden bg-slate-950 shrink-0">
-            <img src="${item.imageUrl}" alt="${item.productName}" class="w-full h-full object-cover"/>
+            <img src="${getItemDisplayImage(item)}" alt="${item.productName}" class="w-full h-full object-cover"/>
             
             <label class="absolute top-2 left-2 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-700 flex items-center justify-center cursor-pointer min-w-[34px] min-h-[34px]">
               <input 
@@ -671,7 +757,17 @@
                 R$ ${item.priceMin.toFixed(2).replace('.', ',')}
               </div>
 
-              <div class="flex items-center gap-1.5">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <!-- Botão Estúdio IA -->
+                <button 
+                  type="button" 
+                  data-id="${item.itemId}" 
+                  class="btn-ai-studio-miner px-2.5 py-2 bg-violet-600/20 hover:bg-violet-600 text-violet-300 hover:text-white rounded-xl min-h-[38px] text-xs font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                  title="Estúdio IA: Copy e Imagem UGC"
+                >
+                  <span>✨ IA</span>
+                </button>
+
                 <!-- Botões de Compartilhamento Rastreado -->
                 <button 
                   type="button" 
@@ -772,6 +868,15 @@
         const id = btn.dataset.id;
         const item = mineradosList.find(p => p.itemId === id);
         if (item) await dispararCompartilhamento(item, 'pinterest', btn);
+      });
+    });
+
+    // Eventos Estúdio IA (Minerados)
+    document.querySelectorAll('.btn-ai-studio-miner').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        const item = mineradosList.find(p => p.itemId === id);
+        if (item) abrirModalAiStudio(item);
       });
     });
   }
@@ -913,11 +1018,11 @@
       const isSelected = publicadosSelectedIds.has(String(item.id));
 
       return `
-        <div class="bg-slate-900 border ${isSelected ? 'border-red-500/80 bg-red-950/10' : 'border-slate-800'} rounded-2xl p-2.5 sm:p-3 flex items-center justify-between gap-2.5 sm:gap-3 transition-all">
+        <div class="bg-slate-900 border ${isSelected ? 'border-red-500/80 bg-red-950/10' : 'border-slate-800'} rounded-2xl p-2.5 sm:p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 transition-all">
           
-          <div class="flex items-center gap-2.5 sm:gap-3 overflow-hidden">
+          <div class="flex items-center gap-2.5 sm:gap-3 overflow-hidden min-w-0">
             <!-- Checkbox de Seleção em Lote Touch -->
-            <label class="p-1.5 flex items-center justify-center cursor-pointer min-h-[38px] min-w-[38px]">
+            <label class="p-1.5 flex items-center justify-center cursor-pointer min-h-[38px] min-w-[38px] shrink-0">
               <input 
                 type="checkbox" 
                 data-id="${item.id}" 
@@ -926,9 +1031,9 @@
               />
             </label>
 
-            <img src="${item.imagem}" alt="${item.titulo}" class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl object-cover bg-slate-950 shrink-0"/>
+            <img src="${getItemDisplayImage(item)}" alt="${item.titulo}" class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl object-cover bg-slate-950 shrink-0"/>
             
-            <div class="truncate">
+            <div class="truncate min-w-0">
               <span class="text-[9px] font-bold uppercase text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded-full">${item.categoria}</span>
               <h5 class="text-xs font-bold text-white truncate mt-0.5">${item.titulo}</h5>
               <div class="text-[11px] text-slate-400 mt-0.5">
@@ -937,7 +1042,17 @@
             </div>
           </div>
 
-          <div class="flex items-center gap-1.5 shrink-0">
+          <div class="flex items-center justify-end gap-1.5 shrink-0">
+            <!-- Botão Estúdio IA -->
+            <button 
+              type="button" 
+              data-id="${item.id}" 
+              class="btn-ai-studio-pub px-2.5 py-2 rounded-xl bg-violet-600/20 hover:bg-violet-600 text-violet-300 hover:text-white transition-colors cursor-pointer min-h-[38px] text-xs font-bold flex items-center justify-center gap-1"
+              title="Estúdio IA: Copy e Imagem UGC"
+            >
+              <span>✨ IA</span>
+            </button>
+
             <!-- Botões de Compartilhamento Rastreado nos Publicados -->
             <button 
               type="button" 
@@ -1014,6 +1129,15 @@
         const id = btn.dataset.id;
         if (!confirm('Deseja realmente remover este produto do site?')) return;
         await removerProdutoDoSite(id);
+      });
+    });
+
+    // Eventos Estúdio IA (Publicados)
+    document.querySelectorAll('.btn-ai-studio-pub').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        const item = publicadosList.find(p => String(p.id) === String(id));
+        if (item) abrirModalAiStudio(item);
       });
     });
   }
@@ -1892,6 +2016,12 @@
   const csvPostDownloadBox = document.getElementById('csv-post-download-box');
   const btnGerarCsvPinterest = document.getElementById('btn-gerar-csv-pinterest');
   const btnGerarCsvLabel = document.getElementById('btn-gerar-csv-label');
+  const csvAiCopyToggle = document.getElementById('csv-ai-copy-toggle');
+  const csvAiGatilhoWrap = document.getElementById('csv-ai-gatilho-wrap');
+  const csvAiGatilhoSelect = document.getElementById('csv-ai-gatilho-select');
+  const csvAiUgcToggle = document.getElementById('csv-ai-ugc-toggle');
+  const csvAiCenarioWrap = document.getElementById('csv-ai-cenario-wrap');
+  const csvAiCenarioSelect = document.getElementById('csv-ai-cenario-select');
 
   let currentCsvSourceTab = 'minerar';
   const DEFAULT_PINTEREST_BOARD = 'Achadinhos Shopee';
@@ -1952,6 +2082,12 @@
     if (csvProgressBar) csvProgressBar.style.width = '0%';
     if (csvProgressPercent) csvProgressPercent.textContent = '0%';
     if (csvPostDownloadBox) csvPostDownloadBox.classList.add('hidden');
+
+    // Toggles de IA iniciam desligados por padrão
+    if (csvAiCopyToggle) csvAiCopyToggle.checked = false;
+    if (csvAiGatilhoWrap) csvAiGatilhoWrap.classList.add('hidden');
+    if (csvAiUgcToggle) csvAiUgcToggle.checked = false;
+    if (csvAiCenarioWrap) csvAiCenarioWrap.classList.add('hidden');
 
     if (btnGerarCsvPinterest) btnGerarCsvPinterest.disabled = false;
     if (btnGerarCsvLabel) btnGerarCsvLabel.textContent = 'Gerar e Baixar CSV';
@@ -2033,9 +2169,15 @@
       }
     }
 
+    // Opções de IA (Opcionais)
+    const useAiCopy = Boolean(csvAiCopyToggle && csvAiCopyToggle.checked);
+    const aiGatilho = (csvAiGatilhoSelect && csvAiGatilhoSelect.value) || 'auto';
+    const useAiUgc = Boolean(csvAiUgcToggle && csvAiUgcToggle.checked);
+    const aiCenario = (csvAiCenarioSelect && csvAiCenarioSelect.value) || 'auto';
+
     // Travar botão e exibir progresso
     if (btnGerarCsvPinterest) btnGerarCsvPinterest.disabled = true;
-    if (btnGerarCsvLabel) btnGerarCsvLabel.textContent = 'Gerando links rastreados...';
+    if (btnGerarCsvLabel) btnGerarCsvLabel.textContent = (useAiCopy || useAiUgc) ? 'Processando com IA...' : 'Gerando links rastreados...';
     if (csvProgressBox) csvProgressBox.classList.remove('hidden');
     if (csvPostDownloadBox) csvPostDownloadBox.classList.add('hidden');
 
@@ -2045,21 +2187,27 @@
     // Cabeçalho Oficial do Pinterest Bulk Upload
     csvRows.push('Title,Media URL,Pinterest board,Thumbnail,Description,Link,Publish date,Keywords');
 
+    const setCsvProgressStep = (idx, stepLabel, itemTitle) => {
+      if (!csvProgressText) return;
+      const shortName = String(itemTitle || '').slice(0, 22);
+      csvProgressText.innerHTML = `
+        <svg class="w-3.5 h-3.5 animate-spin text-red-500 shrink-0" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+        </svg>
+        <span class="truncate">Produto ${idx + 1}/${total}: ${stepLabel}${shortName ? ` (${shortName}...)` : ''}</span>
+      `;
+    };
+
     for (let i = 0; i < total; i++) {
       const item = items[i];
+      const itemId = getItemId(item);
+      const rawTitle = (item.productName || item.titulo || 'Achadinho Shopee').trim();
       const percent = Math.round(((i + 1) / total) * 100);
 
       if (csvProgressPercent) csvProgressPercent.textContent = `${percent}%`;
       if (csvProgressBar) csvProgressBar.style.width = `${percent}%`;
-      if (csvProgressText) {
-        csvProgressText.innerHTML = `
-          <svg class="w-3.5 h-3.5 animate-spin text-red-500 shrink-0" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-          </svg>
-          Gerando link ${i + 1} de ${total}: ${(item.productName || item.titulo || '').slice(0, 20)}...
-        `;
-      }
+      setCsvProgressStep(i, 'gerando link rastreado', rawTitle);
 
       // Link rastreado com subIds: ["pinterest"]
       const originUrl = item.offerLink || item.link_afiliado || item.productLink || '';
@@ -2070,20 +2218,13 @@
         console.warn('Fallback ao link original no CSV:', err.message);
       }
 
-      // 1. Title (limpo até 100 chars)
-      const rawTitle = (item.productName || item.titulo || 'Achadinho Shopee').trim();
-      const title = rawTitle.slice(0, 100);
-
-      // 2. Media URL
-      const mediaUrl = (item.imageUrl || item.imagem || '').trim();
-
-      // 3. Pinterest board
+      // Valores padrão (sem IA)
+      let title = rawTitle.slice(0, 100);
+      const originalMediaUrl = (item.imageUrl || item.imagem || '').trim();
+      let mediaUrl = originalMediaUrl;
       const board = useCategoryAsBoard ? formatarCategoriaBoard(item) : fallbackBoard;
-
-      // 4. Thumbnail (vazio conforme padrão)
       const thumbnail = '';
 
-      // 5. Description (até 500 chars)
       const precoVal = item.priceMin || item.preco || 0;
       const precoFmt = Number(precoVal).toFixed(2).replace('.', ',');
       const notaVal = item.ratingStar || item.nota || 4.8;
@@ -2095,6 +2236,41 @@
       let description = `🔥 Achadinho Shopee imperdível!\n💰 Por apenas R$ ${precoFmt}\n⭐ Nota ${notaFmt} | ${vendasVal} vendidos\n\n👉 Toque no link para garantir com desconto na Shopee!\n\n#shopee #achadinhos #ofertas #comprinhas${hashtagNicho}`;
       if (description.length > 500) {
         description = description.slice(0, 497) + '...';
+      }
+      let keywords = gerarKeywordsCsv(item);
+
+      // Se houver UGC hospedado selecionado na sessão pelo Estúdio IA, aproveitar
+      if (itemId && aiActiveUgcByItem.has(itemId)) {
+        const activeUgc = aiActiveUgcByItem.get(itemId);
+        if (activeUgc && activeUgc.hosted && activeUgc.ugcUrl) {
+          mediaUrl = activeUgc.ugcUrl;
+        }
+      }
+
+      // 1) Copy IA (Opcional)
+      if (useAiCopy) {
+        setCsvProgressStep(i, 'gerando copy IA', rawTitle);
+        try {
+          const aiCopy = await gerarCopyComIA(item, 'pinterest', aiGatilho);
+          if (aiCopy && aiCopy.title) title = String(aiCopy.title).trim().slice(0, 100);
+          if (aiCopy && aiCopy.description) description = String(aiCopy.description).trim().slice(0, 500);
+          if (aiCopy && aiCopy.keywords) keywords = String(aiCopy.keywords).trim();
+        } catch (aiErr) {
+          console.warn('Fallback copy padrão no CSV:', aiErr.message);
+        }
+      }
+
+      // 2) Imagem UGC IA (Opcional)
+      if (useAiUgc) {
+        setCsvProgressStep(i, 'gerando imagem UGC', rawTitle);
+        try {
+          const ugcRes = await gerarUgcComIA(item, aiCenario);
+          if (ugcRes && ugcRes.hosted && ugcRes.ugcUrl) {
+            mediaUrl = ugcRes.ugcUrl;
+          }
+        } catch (ugcErr) {
+          console.warn('Fallback imagem original no CSV:', ugcErr.message);
+        }
       }
 
       // 6. Link
@@ -2112,9 +2288,6 @@
         const s = String(itemTime.getUTCSeconds()).padStart(2, '0');
         publishDate = `${y}-${m}-${d}T${h}:${min}:${s}`;
       }
-
-      // 8. Keywords (até 5 termos)
-      const keywords = gerarKeywordsCsv(item);
 
       // Montar linha escapada
       const row = [
@@ -2210,8 +2383,229 @@
       });
     }
 
+    if (csvAiCopyToggle && csvAiGatilhoWrap) {
+      csvAiCopyToggle.addEventListener('change', () => {
+        csvAiGatilhoWrap.classList.toggle('hidden', !csvAiCopyToggle.checked);
+      });
+    }
+
+    if (csvAiUgcToggle && csvAiCenarioWrap) {
+      csvAiUgcToggle.addEventListener('change', () => {
+        csvAiCenarioWrap.classList.toggle('hidden', !csvAiUgcToggle.checked);
+      });
+    }
+
     if (btnGerarCsvPinterest) {
       btnGerarCsvPinterest.addEventListener('click', executarGeracaoCsvPinterest);
+    }
+  }
+
+  // ================= MODAL: ESTÚDIO IA DO PRODUTO =================
+  const modalAiStudio = document.getElementById('modal-ai-studio');
+  const btnCloseModalAiStudio = document.getElementById('btn-close-modal-ai-studio');
+  const aiStudioProductName = document.getElementById('ai-studio-product-name');
+  const aiWaGatilhoSelect = document.getElementById('ai-wa-gatilho-select');
+  const btnAiGerarWa = document.getElementById('btn-ai-gerar-wa');
+  const btnAiGerarWaLabel = document.getElementById('btn-ai-gerar-wa-label');
+  const aiWaCopyTextarea = document.getElementById('ai-wa-copy-textarea');
+  const btnAiCopiarWa = document.getElementById('btn-ai-copiar-wa');
+  const btnAiEnviarWa = document.getElementById('btn-ai-enviar-wa');
+
+  const aiUgcCenarioSelect = document.getElementById('ai-ugc-cenario-select');
+  const btnAiGerarUgc = document.getElementById('btn-ai-gerar-ugc');
+  const btnAiGerarUgcLabel = document.getElementById('btn-ai-gerar-ugc-label');
+  const aiUgcPreviewImg = document.getElementById('ai-ugc-preview-img');
+  const aiUgcLoading = document.getElementById('ai-ugc-loading');
+  const aiUgcStatusBadge = document.getElementById('ai-ugc-status-badge');
+  const btnAiBaixarUgc = document.getElementById('btn-ai-baixar-ugc');
+  const btnAiUsarUgc = document.getElementById('btn-ai-usar-ugc');
+
+  let currentAiStudioItem = null;
+  let currentAiStudioUgcResult = null;
+
+  function abrirModalAiStudio(item) {
+    currentAiStudioItem = item;
+    const itemId = getItemId(item);
+    const title = (item.productName || item.titulo || 'Produto Shopee').trim();
+
+    if (aiStudioProductName) aiStudioProductName.textContent = title;
+
+    const selectedGatilho = (aiWaGatilhoSelect && aiWaGatilhoSelect.value) || 'auto';
+    const cachedCopy = aiCopyCache.get(`${itemId}_whatsapp_${selectedGatilho}`);
+    if (aiWaCopyTextarea) {
+      aiWaCopyTextarea.value = cachedCopy?.message || '';
+    }
+
+    const activeUgc = aiActiveUgcByItem.get(itemId);
+    const selectedCenario = (aiUgcCenarioSelect && aiUgcCenarioSelect.value) || 'auto';
+    const cachedUgc = activeUgc || aiUgcCache.get(`${itemId}_${selectedCenario}`) || null;
+    currentAiStudioUgcResult = cachedUgc;
+
+    if (aiUgcPreviewImg) {
+      aiUgcPreviewImg.src = cachedUgc?.ugcUrl || item.imageUrl || item.imagem || '';
+    }
+    if (aiUgcStatusBadge) {
+      if (cachedUgc?.ugcUrl) {
+        aiUgcStatusBadge.textContent = cachedUgc.hosted ? 'UGC Hospedado' : 'UGC Gerado';
+        aiUgcStatusBadge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 font-semibold';
+      } else {
+        aiUgcStatusBadge.textContent = 'Original';
+        aiUgcStatusBadge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-semibold';
+      }
+    }
+    if (btnAiBaixarUgc) btnAiBaixarUgc.disabled = !cachedUgc?.ugcUrl;
+    if (btnAiUsarUgc) btnAiUsarUgc.disabled = !cachedUgc?.ugcUrl;
+
+    if (modalAiStudio) {
+      modalAiStudio.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+    }
+  }
+
+  function fecharModalAiStudio() {
+    if (modalAiStudio) {
+      modalAiStudio.classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+    }
+  }
+
+  function setupAiStudioEvents() {
+    if (btnCloseModalAiStudio) {
+      btnCloseModalAiStudio.addEventListener('click', fecharModalAiStudio);
+    }
+    if (modalAiStudio) {
+      modalAiStudio.addEventListener('click', (e) => {
+        if (e.target === modalAiStudio) fecharModalAiStudio();
+      });
+    }
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modalAiStudio && !modalAiStudio.classList.contains('hidden')) {
+        fecharModalAiStudio();
+      }
+    });
+
+    if (btnAiGerarWa) {
+      btnAiGerarWa.addEventListener('click', async () => {
+        if (!currentAiStudioItem) return;
+        const gatilho = (aiWaGatilhoSelect && aiWaGatilhoSelect.value) || 'auto';
+        btnAiGerarWa.disabled = true;
+        if (btnAiGerarWaLabel) btnAiGerarWaLabel.textContent = 'Gerando...';
+        try {
+          const res = await gerarCopyComIA(currentAiStudioItem, 'whatsapp', gatilho);
+          if (aiWaCopyTextarea) aiWaCopyTextarea.value = res.message || '';
+          showToast('Copy IA para WhatsApp gerada!');
+        } catch (err) {
+          showToast(`Erro ao gerar copy IA: ${err.message}`, true);
+        } finally {
+          btnAiGerarWa.disabled = false;
+          if (btnAiGerarWaLabel) btnAiGerarWaLabel.textContent = 'Gerar Copy IA';
+        }
+      });
+    }
+
+    if (btnAiCopiarWa) {
+      btnAiCopiarWa.addEventListener('click', () => {
+        const text = (aiWaCopyTextarea && aiWaCopyTextarea.value.trim()) || '';
+        if (!text) {
+          showToast('Gere ou digite uma copy primeiro.', true);
+          return;
+        }
+        copyTextWithFeedback(btnAiCopiarWa, text, 'Copiar Copy');
+      });
+    }
+
+    if (btnAiEnviarWa) {
+      btnAiEnviarWa.addEventListener('click', async () => {
+        if (!currentAiStudioItem) return;
+        btnAiEnviarWa.disabled = true;
+        try {
+          const originUrl = currentAiStudioItem.offerLink || currentAiStudioItem.link_afiliado || currentAiStudioItem.productLink || '';
+          const shortLink = await obterLinkRastreado(originUrl, 'whatsapp');
+          const customCopy = (aiWaCopyTextarea && aiWaCopyTextarea.value.trim()) || '';
+          const titulo = currentAiStudioItem.productName || currentAiStudioItem.titulo || 'Achadinho Shopee';
+          const precoFmt = Number(currentAiStudioItem.priceMin || currentAiStudioItem.preco || 0).toFixed(2).replace('.', ',');
+          const finalMsg = customCopy
+            ? `${customCopy}\n\n👉 ${shortLink}`
+            : `🔥 *${titulo}*\n💰 Por apenas *R$ ${precoFmt}*\n\n👉 Garanta aqui: ${shortLink}`;
+
+          const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(finalMsg)}`;
+          window.open(waUrl, '_blank', 'noopener,noreferrer');
+          showToast('WhatsApp aberto com link rastreado!');
+        } catch (err) {
+          showToast(`Erro ao enviar no WhatsApp: ${err.message}`, true);
+        } finally {
+          btnAiEnviarWa.disabled = false;
+        }
+      });
+    }
+
+    if (btnAiGerarUgc) {
+      btnAiGerarUgc.addEventListener('click', async () => {
+        if (!currentAiStudioItem) return;
+        const cenario = (aiUgcCenarioSelect && aiUgcCenarioSelect.value) || 'auto';
+        btnAiGerarUgc.disabled = true;
+        if (btnAiGerarUgcLabel) btnAiGerarUgcLabel.textContent = 'Gerando...';
+        if (aiUgcLoading) aiUgcLoading.classList.remove('hidden');
+
+        try {
+          const ugcRes = await gerarUgcComIA(currentAiStudioItem, cenario);
+          currentAiStudioUgcResult = ugcRes;
+          if (aiUgcPreviewImg && ugcRes.ugcUrl) {
+            aiUgcPreviewImg.src = ugcRes.ugcUrl;
+          }
+          if (aiUgcStatusBadge) {
+            aiUgcStatusBadge.textContent = ugcRes.hosted ? 'UGC Hospedado' : 'UGC Gerado (Local)';
+            aiUgcStatusBadge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 font-semibold';
+          }
+          if (btnAiBaixarUgc) btnAiBaixarUgc.disabled = !ugcRes.ugcUrl;
+          if (btnAiUsarUgc) btnAiUsarUgc.disabled = !ugcRes.ugcUrl;
+          showToast('Imagem UGC 2:3 gerada com sucesso!');
+        } catch (err) {
+          showToast(`Erro ao gerar imagem UGC: ${err.message}`, true);
+        } finally {
+          btnAiGerarUgc.disabled = false;
+          if (btnAiGerarUgcLabel) btnAiGerarUgcLabel.textContent = 'Gerar Imagem UGC';
+          if (aiUgcLoading) aiUgcLoading.classList.add('hidden');
+        }
+      });
+    }
+
+    if (btnAiBaixarUgc) {
+      btnAiBaixarUgc.addEventListener('click', async () => {
+        if (!currentAiStudioUgcResult?.ugcUrl) return;
+        try {
+          const url = currentAiStudioUgcResult.ugcUrl;
+          let downloadHref = url;
+          let revokeNeeded = false;
+          if (!url.startsWith('data:')) {
+            const resp = await fetch(getProxyImageUrl(url));
+            const blob = await resp.blob();
+            downloadHref = URL.createObjectURL(blob);
+            revokeNeeded = true;
+          }
+          const a = document.createElement('a');
+          a.href = downloadHref;
+          a.download = `ugc-${getItemId(currentAiStudioItem) || 'produto'}.png`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          if (revokeNeeded) setTimeout(() => URL.revokeObjectURL(downloadHref), 1000);
+          showToast('Imagem UGC baixada!');
+        } catch (err) {
+          showToast(`Erro ao baixar UGC: ${err.message}`, true);
+        }
+      });
+    }
+
+    if (btnAiUsarUgc) {
+      btnAiUsarUgc.addEventListener('click', () => {
+        if (!currentAiStudioItem || !currentAiStudioUgcResult?.ugcUrl) return;
+        const itemId = getItemId(currentAiStudioItem);
+        aiActiveUgcByItem.set(itemId, currentAiStudioUgcResult);
+        renderMinerados();
+        renderPublicados();
+        showToast('Imagem UGC aplicada ao card na sessão!');
+      });
     }
   }
 

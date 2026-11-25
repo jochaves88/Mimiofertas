@@ -897,6 +897,73 @@
           </div>
         </div>
 
+        <!-- 3. Turbinar com IA (Opcional) -->
+        <div class="bg-slate-950/70 border border-violet-500/30 rounded-2xl p-3.5 sm:p-4 space-y-3">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4 text-violet-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+              </svg>
+              <span class="text-xs font-bold text-white">Turbinar com IA (Opcional)</span>
+            </div>
+            <span class="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 border border-violet-500/30">Opcional</span>
+          </div>
+
+          <!-- Toggle 1: Copys com IA -->
+          <div class="space-y-2 pt-2 border-t border-slate-800/80">
+            <div class="flex items-center justify-between gap-3">
+              <label for="csv-ai-copy-toggle" class="text-xs font-semibold text-slate-200 cursor-pointer">
+                Gerar Copys com IA (Gatilhos Mentais)
+              </label>
+              <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                <input type="checkbox" id="csv-ai-copy-toggle" class="sr-only peer" />
+                <div class="w-11 h-6 bg-slate-800 peer-focus:ring-2 peer-focus:ring-violet-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
+              </label>
+            </div>
+
+            <div id="csv-ai-gatilho-wrap" class="hidden">
+              <label for="csv-ai-gatilho-select" class="block text-[11px] font-bold text-slate-400 mb-1">Gatilho mental:</label>
+              <select
+                id="csv-ai-gatilho-select"
+                class="w-full min-h-[40px] bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-colors cursor-pointer"
+              >
+                <option value="auto" selected>Automático (Melhor combinação)</option>
+                <option value="prova_social">Prova Social</option>
+                <option value="escassez">Escassez</option>
+                <option value="curiosidade">Curiosidade</option>
+                <option value="beneficio">Benefício Direto</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Toggle 2: Imagens UGC com IA -->
+          <div class="space-y-2 pt-2 border-t border-slate-800/80">
+            <div class="flex items-center justify-between gap-3">
+              <label for="csv-ai-ugc-toggle" class="text-xs font-semibold text-slate-200 cursor-pointer">
+                Gerar Imagens UGC com IA (Vertical 2:3)
+              </label>
+              <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                <input type="checkbox" id="csv-ai-ugc-toggle" class="sr-only peer" />
+                <div class="w-11 h-6 bg-slate-800 peer-focus:ring-2 peer-focus:ring-violet-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
+              </label>
+            </div>
+
+            <div id="csv-ai-cenario-wrap" class="hidden space-y-1.5">
+              <label for="csv-ai-cenario-select" class="block text-[11px] font-bold text-slate-400">Cenário da foto UGC:</label>
+              <select
+                id="csv-ai-cenario-select"
+                class="w-full min-h-[40px] bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-colors cursor-pointer"
+              >
+                <option value="auto" selected>Automático (Ideal para categoria)</option>
+                <option value="mao_segurando">Mão segurando</option>
+                <option value="ambiente_casa">Ambiente de casa</option>
+                <option value="unboxing">Unboxing</option>
+              </select>
+              <p class="text-[10px] text-slate-400">Se a hospedagem ImgBB não estiver ativa ou falhar, o CSV usa a foto original automaticamente.</p>
+            </div>
+          </div>
+        </div>
+
         <!-- Barra de Progresso Durante Geração -->
         <div id="csv-progress-box" class="hidden bg-slate-950 border border-slate-800 rounded-2xl p-3.5 space-y-2">
           <div class="flex items-center justify-between text-xs">
@@ -962,6 +1029,182 @@
         </button>
       </div>
 
+    </div>
+  </div>
+
+  <!-- ================= MODAL: ESTÚDIO IA DO PRODUTO ================= -->
+  <div id="modal-ai-studio" class="hidden fixed inset-0 z-50 bg-slate-950 sm:bg-slate-950/80 sm:backdrop-blur-md flex flex-col sm:items-center sm:justify-center sm:p-4">
+    <div class="w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-xl bg-slate-900 sm:border sm:border-slate-800 sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+      
+      <!-- Header -->
+      <div class="shrink-0 px-4 py-3 sm:px-6 sm:py-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="w-9 h-9 rounded-xl bg-violet-600/20 text-violet-400 flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+            </svg>
+          </div>
+          <div class="min-w-0">
+            <h2 class="text-sm sm:text-base font-extrabold text-white flex items-center gap-1.5">
+              Estúdio IA do Produto
+              <span class="text-[10px] font-semibold bg-violet-600/20 text-violet-300 px-2 py-0.5 rounded-full">Gemini</span>
+            </h2>
+            <p id="ai-studio-product-name" class="text-[11px] text-slate-400 truncate">Produto selecionado</p>
+          </div>
+        </div>
+
+        <button 
+          type="button" 
+          id="btn-close-modal-ai-studio" 
+          class="min-h-[42px] min-w-[42px] p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-colors flex items-center justify-center cursor-pointer shrink-0"
+          aria-label="Fechar Estúdio IA"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Corpo com Scroll Interno -->
+      <div class="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-4">
+        
+        <!-- Bloco 1: Copy IA para WhatsApp -->
+        <div class="bg-slate-950/70 border border-slate-800 rounded-2xl p-3.5 sm:p-4 space-y-3">
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="text-xs font-extrabold text-emerald-400 uppercase tracking-wider">Copy IA para WhatsApp</h3>
+            <span class="text-[10px] text-slate-400">subId: whatsapp</span>
+          </div>
+
+          <div class="flex flex-col sm:flex-row gap-2">
+            <select
+              id="ai-wa-gatilho-select"
+              aria-label="Gatilho mental para WhatsApp"
+              class="flex-1 min-h-[42px] bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+            >
+              <option value="auto" selected>Gatilho: Automático</option>
+              <option value="prova_social">Gatilho: Prova Social</option>
+              <option value="escassez">Gatilho: Escassez</option>
+              <option value="curiosidade">Gatilho: Curiosidade</option>
+              <option value="beneficio">Gatilho: Benefício Direto</option>
+            </select>
+
+            <button
+              type="button"
+              id="btn-ai-gerar-wa"
+              class="min-h-[42px] px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0 focus:outline-none focus:ring-2 focus:ring-violet-400"
+            >
+              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+              </svg>
+              <span id="btn-ai-gerar-wa-label">Gerar Copy IA</span>
+            </button>
+          </div>
+
+          <textarea
+            id="ai-wa-copy-textarea"
+            rows="5"
+            placeholder="Clique em Gerar Copy IA para criar uma mensagem persuasiva com gatilhos mentais..."
+            class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors resize-y"
+          ></textarea>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button
+              type="button"
+              id="btn-ai-copiar-wa"
+              class="min-h-[42px] px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-500"
+            >
+              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2"/>
+              </svg>
+              <span>Copiar Copy</span>
+            </button>
+
+            <button
+              type="button"
+              id="btn-ai-enviar-wa"
+              class="min-h-[42px] px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            >
+              <svg class="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2"/>
+              </svg>
+              <span>Enviar no WhatsApp</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Bloco 2: Imagem UGC com IA (Vertical 2:3) -->
+        <div class="bg-slate-950/70 border border-slate-800 rounded-2xl p-3.5 sm:p-4 space-y-3">
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="text-xs font-extrabold text-violet-300 uppercase tracking-wider">Imagem UGC com IA (Vertical 2:3)</h3>
+            <span id="ai-ugc-status-badge" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-semibold">Original</span>
+          </div>
+
+          <div class="flex flex-col sm:flex-row gap-2">
+            <select
+              id="ai-ugc-cenario-select"
+              aria-label="Cenário da imagem UGC"
+              class="flex-1 min-h-[42px] bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500 cursor-pointer"
+            >
+              <option value="auto" selected>Cenário: Automático</option>
+              <option value="mao_segurando">Cenário: Mão segurando</option>
+              <option value="ambiente_casa">Cenário: Ambiente de casa</option>
+              <option value="unboxing">Cenário: Unboxing</option>
+            </select>
+
+            <button
+              type="button"
+              id="btn-ai-gerar-ugc"
+              class="min-h-[42px] px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0 focus:outline-none focus:ring-2 focus:ring-violet-400"
+            >
+              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+              <span id="btn-ai-gerar-ugc-label">Gerar Imagem UGC</span>
+            </button>
+          </div>
+
+          <!-- Preview Vertical 2:3 -->
+          <div class="bg-slate-950 border border-slate-800 rounded-2xl p-3 flex items-center justify-center">
+            <div class="relative aspect-[2/3] w-[180px] sm:w-[210px] rounded-xl overflow-hidden bg-slate-900 border border-slate-800 shadow-xl">
+              <img id="ai-ugc-preview-img" src="" alt="Preview UGC" class="w-full h-full object-cover" />
+              <div id="ai-ugc-loading" class="hidden absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2 p-3 text-center">
+                <svg class="w-6 h-6 animate-spin text-violet-400" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                </svg>
+                <span class="text-[11px] font-bold text-violet-200">Gerando foto UGC...</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button
+              type="button"
+              id="btn-ai-baixar-ugc"
+              disabled
+              class="min-h-[42px] px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-100 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-500"
+            >
+              <svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+              </svg>
+              <span>Baixar UGC</span>
+            </button>
+
+            <button
+              type="button"
+              id="btn-ai-usar-ugc"
+              disabled
+              class="min-h-[42px] px-3 py-2 rounded-xl bg-violet-600/20 hover:bg-violet-600 border border-violet-500/40 disabled:opacity-40 disabled:cursor-not-allowed text-violet-200 hover:text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500"
+            >
+              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span>Usar no Card / CSV</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
     </div>
   </div>
 
